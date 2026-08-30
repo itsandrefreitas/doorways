@@ -3,8 +3,8 @@
 Articulated doors 1, 2, 3 and 4 blocks wide and 2 blocks tall, for Minecraft 26.2.
 Runs on both Fabric and NeoForge.
 
-- Original specification: `Doorways - Wide_Doors_Especificacao_v0.1.docx` (Portuguese)
-- Decisions that amend it: [DECISIONS.md](DECISIONS.md) ← **read this first**
+The project started from a Portuguese specification document, kept outside this repository.
+[DECISIONS.md](DECISIONS.md) amends it and is the source of truth ← **read this first**
 
 ## Status
 

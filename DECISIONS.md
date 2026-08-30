@@ -1,8 +1,8 @@
 # Doorways — Decision Log (amendment to Specification v0.1)
 
-The specification `Doorways - Wide_Doors_Especificacao_v0.1.docx` (Portuguese) remains the
-source of truth. This document records the **explicit later changes** that the spec itself
-anticipates, and settles the decisions it left open.
+The project started from a Portuguese specification document, kept outside this repository.
+This document records the **explicit later changes** that the spec itself anticipates, settles
+the decisions it left open, and is the source of truth wherever the two disagree.
 
 Status: **v0.3** · Last updated: 2026-08-30
 
