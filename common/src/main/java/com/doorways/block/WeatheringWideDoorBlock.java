@@ -12,7 +12,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.ChangeOverTimeBlock;
 import net.minecraft.world.level.block.WeatheringCopper;
-import net.minecraft.world.level.block.WeatheringCopper.WeatherState;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockSetType;

@@ -788,6 +788,6 @@ public class WideDoorBlock extends Block {
     protected BlockState mirror(BlockState state, Mirror mirror) {
         return mirror == Mirror.NONE
                 ? state
-                : state.rotate(mirror.getRotation(state.getValue(FACING))).cycle(HINGE);
+                : rotate(state, mirror.getRotation(state.getValue(FACING))).cycle(HINGE);
     }
 }
