@@ -8,7 +8,13 @@
     "${mod_authors}"
   ],
   "license": "${mod_license}",
+  "icon": "assets/doorways/icon.png",
   "environment": "*",
+  "contact": {
+    "homepage": "https://github.com/itsandrefreitas/doorways",
+    "sources": "https://github.com/itsandrefreitas/doorways",
+    "issues": "https://github.com/itsandrefreitas/doorways/issues"
+  },
   "entrypoints": {
     "main": [
       "com.doorways.fabric.DoorwaysFabric"

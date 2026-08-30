@@ -6,6 +6,9 @@ version = "${version}"
 displayName = "${mod_name}"
 description = '''${mod_description}'''
 authors = "${mod_authors}"
+logoFile = "assets/doorways/icon.png"
+displayURL = "https://github.com/itsandrefreitas/doorways"
+issueTrackerURL = "https://github.com/itsandrefreitas/doorways/issues"
 
 [[dependencies.${mod_id}]]
 modId = "neoforge"

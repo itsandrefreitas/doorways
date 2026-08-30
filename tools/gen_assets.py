@@ -44,17 +44,26 @@ def blank():
     return [[NONE] * W for _ in range(H)]
 
 
-def write_png(path, px):
+def write_png_sized(path, px):
+    """Writes an RGBA PNG of whatever size the pixel grid is."""
+    height = len(px)
+    width = len(px[0])
     raw = b"".join(b"\x00" + b"".join(bytes(p) for p in row) for row in px)
+
     def chunk(typ, data):
         return (struct.pack(">I", len(data)) + typ + data
                 + struct.pack(">I", zlib.crc32(typ + data) & 0xFFFFFFFF))
+
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
         f.write(b"\x89PNG\r\n\x1a\n"
-                + chunk(b"IHDR", struct.pack(">IIBBBBB", W, H, 8, 6, 0, 0, 0))
+                + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
                 + chunk(b"IDAT", zlib.compress(raw, 9))
                 + chunk(b"IEND", b""))
+
+
+def write_png(path, px):
+    write_png_sized(path, px)
 
 
 def write_json(path, body, indent=2):
@@ -395,6 +404,41 @@ def saloon_leaf_model(face_tex, half):
     }
 
 
+def mod_icon(pal):
+    """The mod's icon: a two-column door with glass above, drawn once and scaled up.
+
+    Drawn at 16x16 like everything else and enlarged with whole pixels, so it stays sharp and
+    keeps the same look as the doors themselves rather than being separate artwork.
+    """
+    px = blank()
+    left, right = 1, W - 2
+
+    for y in range(1, H - 1):
+        for x in range(left, right + 1):
+            if y in (1, H - 2) or x in (left, right):
+                px[y][x] = IRON_LO
+            elif 4 <= y <= 8:
+                px[y][x] = GLASS_HI if (x + y) % 3 else GLASS
+            elif x == (left + right) // 2:
+                px[y][x] = pal["GROOVE"]           # the seam between the two leaves
+            else:
+                px[y][x] = pal["WOOD"] if y > 9 else pal["WOOD_HI"]
+
+    for x in range(left, right + 1):
+        px[3][x] = IRON                            # the rail above the glass
+        px[9][x] = IRON
+    for y in (2, 6, 12):
+        px[y][left] = IRON_HI
+        px[y][right] = IRON_HI
+    return px
+
+
+def scale(px, factor):
+    """Whole-pixel enlargement. No blending: the result has to stay pixel art."""
+    return [[px[y // factor][x // factor] for x in range(W * factor)]
+            for y in range(H * factor)]
+
+
 # ---------------------------------------------------------------- writing
 def main():
     jar = zipfile.ZipFile(CLIENT_JAR)
@@ -448,6 +492,11 @@ def main():
                 n += 3
 
             n += write_recipes(material, craft, style, widths)
+
+    # The icon the launcher and the in-game mod list show. 128x128 is what Modrinth asks for.
+    icon = scale(mod_icon(palettes["oak"]), 8)
+    write_png_sized(os.path.join(ASSETS, "icon.png"), icon)
+    n += 1
 
     # the hinge item
     write_png(os.path.join(ASSETS, "textures", "item", HINGE + ".png"), hinge_texture())

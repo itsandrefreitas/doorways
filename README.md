@@ -8,7 +8,18 @@ Runs on both Fabric and NeoForge.
 
 ## Status
 
-**168 doors**: 21 materials × 4 widths × solid/glazed.
+**200 doors** across five styles.
+
+| Style | Materials | Widths | Doors |
+|---|---|---|---|
+| Solid | 21 | 1–4 | 84 |
+| Glazed — glass in the upper half | 21 | 1–4 | 84 |
+| Glass — glass throughout, iron frame | — | 1–4 | 4 |
+| Saloon — spindles under an arch | 12 woods | 2, 4 | 24 |
+| Bookshelf | — | 1–4 | 4 |
+
+Saloon doors exist only at the even widths, where the door splits into two swinging leaves, and
+only in wood. Glass and bookshelf doors have no material to vary.
 
 | Module | What it is | Status |
 |---|---|---|
@@ -22,9 +33,9 @@ loaders is listed in D-28 — and it is mostly a question of *when*, not *what*.
 
 ### Materials
 
-13 woods and metals — oak, spruce, birch, jungle, acacia, dark oak, mangrove, cherry, pale oak,
-bamboo, crimson, warped, iron — plus **8 copper states** (four oxidation stages, each waxed and
-unwaxed).
+12 woods — oak, spruce, birch, jungle, acacia, dark oak, mangrove, cherry, pale oak, bamboo,
+crimson, warped — plus iron and **8 copper states** (four oxidation stages, each waxed and
+unwaxed). Glass and bookshelf make 23 in all.
 
 Each material uses its vanilla `BlockSetType`, and with it the correct opening and closing
 sounds. Iron doors cannot be opened by hand, exactly like vanilla. Copper doors oxidise, take
@@ -43,7 +54,7 @@ it to be* — for reading redstone, for receiving neighbour updates, or for bein
 
 ## Generated assets
 
-1607 files — 168 blockstates with 128 variants each, 421 textures, 257 recipes. None of it is
+2023 files — 200 blockstates with 128 variants each, 565 textures, 289 recipes. None of it is
 hand-edited, and it comes from **two** generators with a deliberate split:
 
 | Generator | Owns | Why |
@@ -55,6 +66,17 @@ The split is not arbitrary. Blockstates decide which way a leaf faces, so they m
 the same `DoorLayout` the game runs — otherwise a door can *behave* one way and *look* another,
 and nothing would fail. Everything else is data repetition, and textures can never come from
 datagen at all: it emits JSON, not PNG. See D-34.
+
+Because the two generators agree on names only by both following the same style table, a third
+script checks that they still do:
+
+```bash
+python tools/check_assets.py .
+```
+
+It verifies that every door has a blockstate, loot table, item definition, model, texture and
+translation, that every model a blockstate points at exists, and that no recipe produces
+something unregistered. It exits non-zero on the first inconsistency.
 
 Material colours are **sampled from the vanilla textures** (`tools/palettes.py` reads PNGs
 straight out of the client jar), so each wood's tone matches the material it is named after.
@@ -158,6 +180,7 @@ codebase look odd until you know the reason:
 - `POWERED` is deliberately absent from every blockstate JSON (D-24)
 - opening and closing runs behind a thread-local transaction guard (D-29)
 - copper conversions are detected in `onPlace`, not intercepted at the item (D-31)
+- saloon doors are built from stacked boxes rather than one, so the arch has a silhouette (D-35)
 
 ## License
 

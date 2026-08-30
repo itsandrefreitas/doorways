@@ -4,7 +4,7 @@ The specification `Doorways - Wide_Doors_Especificacao_v0.1.docx` (Portuguese) r
 source of truth. This document records the **explicit later changes** that the spec itself
 anticipates, and settles the decisions it left open.
 
-Status: **v0.2** · Last updated: 2026-08-30
+Status: **v0.3** · Last updated: 2026-08-30
 
 This is not a changelog. It records *why* each non-obvious choice was made — including the ones
 that were wrong first. If you are here to contribute, this file is worth more than the code.
@@ -55,8 +55,9 @@ reflect that. `LootData` was removed — relevant to §7.
 > **Widened on 2026-08-29.** It started as "oak only" and the bet paid off: adding the remaining
 > materials was one iteration, with no refactoring of the logic.
 
-**21 materials, 168 doors.** The 12 vanilla woods plus bamboo, iron, and the **8 copper states**
-(four oxidation stages × waxed/unwaxed).
+**21 materials, 168 doors** at the time of this decision. The 12 vanilla woods plus bamboo,
+iron, and the **8 copper states** (four oxidation stages × waxed/unwaxed). Glass and bookshelf
+arrived later with their own styles, bringing it to 23 materials and 200 doors -- see D-35.
 
 Each material brings its own vanilla `BlockSetType`, and with it the correct opening, closing
 and step sounds, plus `canOpenByHand` — the iron door refuses to open by hand without a single
@@ -396,6 +397,57 @@ the daemon itself runs on it. Removed.
 > was never verified against anything.
 
 Gradle stays on **9.5.1**, as Fabric recommends.
+
+---
+
+## D-35 — Three more styles, and why style became an enum
+
+Glass, saloon and bookshelf doors join the solid and glazed ones. **200 doors in five styles.**
+
+Style was a boolean while there were two of them. It could not stay one: the new styles are not
+available everywhere, and each answers a different question.
+
+| Style | Materials | Widths |
+|---|---|---|
+| `SOLID`, `GLAZED` | all 21 | 1–4 |
+| `FULL_GLASS` | none — glass is glass | 1–4 |
+| `SALOON` | 12 woods; no iron, no copper | 2 and 4 |
+| `BOOKSHELF` | none | 1–4 |
+
+`DoorStyle` declares its own materials and widths, and `materials.py` mirrors it. Those two
+tables agreeing is what keeps a door from pointing at a texture nobody wrote, and nothing in
+the build enforces it — hence `tools/check_assets.py`, which does.
+
+### A box has a flat top; an arch does not
+
+A saloon door's arch cannot be drawn by transparency alone. The leaf model was a full-height
+slab, so the top face stayed at two blocks whatever the texture did — a bar hanging over the
+doorway, disconnected from the panel, one per column. Cutting the box to the panel fixed the
+bar and lost the arch; dropping the top face fixed both and made the door invisible from above.
+
+The arch is built as **stacked boxes** instead: a base up to the lowest point, then one layer
+per step above it, each shorter along z than the one below. Every layer keeps its top face, so
+the silhouette follows the arch from any angle.
+
+The nesting is not cosmetic. If two boxes shared a face in the same plane they would z-fight,
+which reads far worse than the bar did. Because each layer is strictly narrower than the one
+under it, no two vertical faces ever coincide — and the upper and lower halves omit the faces
+where they meet, for the same reason the vanilla door template does.
+
+> **The arch is symmetric within each column, peaking at the middle.** An arch that rose toward
+> one end looked straight from the opposite one: at an oblique angle the far rise hides behind
+> the near edge. Symmetry removes the question rather than answering it.
+
+### Copying beats redrawing
+
+The first bookshelf door had hand-drawn spines, with the colours sampled from the vanilla
+texture by frequency so they would at least be the right colours. Side by side with a real
+bookshelf it was obviously wrong.
+
+It now uses the vanilla texture unchanged. The sampling helper was deleted with it.
+
+> **When the thing already exists in the jar, use it.** Sampling a palette is the right tool
+> for a colour; it is the wrong tool for a pattern.
 
 ---
 
@@ -799,6 +851,7 @@ Nothing taken from those sources may enter `common` without confirming it is pur
 10. ✅ GameTests (D-16, D-33)
 11. ✅ NeoForge module (D-32) — client and dedicated server
 12. ✅ Blockstate datagen from the real geometry (D-34)
+13. ✅ Glass, saloon and bookshelf styles (D-35)
 
 Open: real datagen for the remaining JSON, a distribution jar that excludes the tests, and a
 translucent render layer for the glazed variants.
