@@ -38,9 +38,9 @@ def expect(condition, message):
         problems.append(message)
 
 
-def report(label, missing):
-    if missing:
-        problems.append(f"{label}: {len(missing)} missing, e.g. {sorted(missing)[:5]}")
+def report(label, offenders, verb="missing"):
+    if offenders:
+        problems.append(f"{label}: {len(offenders)} {verb}, e.g. {sorted(offenders)[:5]}")
 
 
 doors = names(ASSETS, "blockstates")
@@ -56,7 +56,14 @@ report("item textures", doors - names(ASSETS, "textures", "item"))
 report("blockstates without a loot table", doors - names(DATA, "loot_table", "blocks"))
 report("loot tables without a blockstate", names(DATA, "loot_table", "blocks") - doors)
 
-# Every model a blockstate points at has to exist, and every model needs its texture.
+# Every model a blockstate points at has to exist, and every texture a model asks for has to
+# exist too.
+#
+# The texture half used to compare the two directory listings by name, which assumed a model and
+# its texture are always called the same thing. A saloon door broke that: it has two models per
+# leaf -- centred in its frame, flush once swung -- sharing one texture, because only the box
+# moves. Reading the reference out of the model checks what actually breaks instead of policing
+# a naming convention.
 block_models = names(ASSETS, "models", "block")
 block_textures = names(ASSETS, "textures", "block")
 referenced = set()
@@ -65,7 +72,19 @@ for door in doors:
         for variant in json.load(f)["variants"].values():
             referenced.add(variant["model"].rsplit("/", 1)[-1])
 report("models referenced by a blockstate", referenced - block_models)
-report("textures behind a block model", block_models - block_textures)
+
+wanted = set()
+for model in block_models:
+    with io.open(os.path.join(ASSETS, "models", "block", model + ".json"), encoding="utf-8") as f:
+        for texture in json.load(f).get("textures", {}).values():
+            # "#face" points back into the same model; a minecraft: path is vanilla's problem.
+            if texture.startswith("#") or not texture.startswith("doorways:"):
+                continue
+            wanted.add(texture.rsplit("/", 1)[-1])
+report("textures a block model asks for", wanted - block_textures)
+
+# Nothing should be generating textures no model ever names.
+report("block textures", block_textures - wanted, "generated but never used")
 
 # Every door should be nameable in the creative menu.
 with io.open(os.path.join(ASSETS, "lang", "en_us.json"), encoding="utf-8") as f:

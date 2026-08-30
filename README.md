@@ -15,15 +15,20 @@ The project started from a Portuguese specification document, kept outside this 
 | Solid | 21 | 1–4 | 84 |
 | Glazed — glass in the upper half | 21 | 1–4 | 84 |
 | Glass — glass throughout, iron frame | — | 1–4 | 4 |
-| Saloon — spindles under an arch | 12 woods | 2, 4 | 24 |
+| Saloon — spindles under an arch, on spring hinges | 12 woods | 2, 4 | 24 |
 | Bookshelf | — | 1–4 | 4 |
 
 Saloon doors exist only at the even widths, where the door splits into two swinging leaves, and
 only in wood. Glass and bookshelf doors have no material to vary.
 
+**Saloon doors hang on double-acting spring hinges**, which is one mechanism and three
+behaviours: they swing to either side, away from whoever pushes them; they return to their frame
+on their own; and they ignore redstone, because a spring has no latch to be held open by. Every
+other door opens one way, stays where you left it, and answers a signal. See D-36.
+
 | Module | What it is | Status |
 |---|---|---|
-| `core` | Pure geometry. Zero Minecraft. | ✅ 13 JUnit tests + 1016 assertions |
+| `core` | Pure geometry. Zero Minecraft. | ✅ 17 JUnit tests + 1873 assertions |
 | `common` | Block, applied geometry, definitions | ✅ Placement, opening, redstone, oxidation |
 | `fabric` | Registration, creative tab, oxidation, datagen, GameTests | ✅ Client + dedicated server |
 | `neoforge` | Deferred registration, tab, data maps | ✅ Client + dedicated server |
@@ -44,8 +49,12 @@ wax from honeycomb, and are scraped back with an axe — as one door, not as loo
 ## How a wide door works
 
 A door is `width × 2` blocks, with no block entity. Every part reconstructs the whole from its
-own `PART`, `FACING`, `HINGE` and `OPEN` state. Opening **moves blocks**: the leaf swings out of
+own `PART`, `FACING`, `HINGE` and `SWING` state. Opening **moves blocks**: the leaf swings out of
 its frame into the space beyond, and the frame is left empty.
+
+`SWING` has three values rather than vanilla's boolean, because a spring-hinged door can be open
+on either side and a column has to know which — otherwise it cannot work out where its siblings
+are (D-36).
 
 That single fact is the source of nearly every bug this project has had, and it is worth
 knowing before you touch anything: *a door that has moved is no longer where the world expects
@@ -54,8 +63,9 @@ it to be* — for reading redstone, for receiving neighbour updates, or for bein
 
 ## Generated assets
 
-2023 files — 200 blockstates with 128 variants each, 565 textures, 289 recipes. None of it is
-hand-edited, and it comes from **two** generators with a deliberate split:
+2386 files — 200 blockstates with 192 variants each, 728 block models, 565 textures, 289
+recipes. None of it is hand-edited, and it comes from **two** generators with a deliberate
+split:
 
 | Generator | Owns | Why |
 |---|---|---|
@@ -75,8 +85,14 @@ python tools/check_assets.py .
 ```
 
 It verifies that every door has a blockstate, loot table, item definition, model, texture and
-translation, that every model a blockstate points at exists, and that no recipe produces
-something unregistered. It exits non-zero on the first inconsistency.
+translation, that every model a blockstate points at exists, that every texture a model asks for
+exists, and that no recipe produces something unregistered. It exits non-zero on the first
+inconsistency.
+
+The texture half reads the reference out of the model rather than comparing directory listings
+by name. Matching names was the simpler rule and it was wrong: a door has two models per leaf --
+in its frame and swung out of it -- sharing one texture, and a rule forbidding that polices a
+naming convention instead of the thing that actually breaks.
 
 Material colours are **sampled from the vanilla textures** (`tools/palettes.py` reads PNGs
 straight out of the client jar), so each wood's tone matches the material it is named after.
@@ -113,14 +129,17 @@ Three layers, and it is worth understanding what each one can and cannot catch.
 
 | Where | What | How to run |
 |---|---|---|
-| `core/src/test` | 13 JUnit tests | `gradlew :core:test` |
-| `core/src/verify` | `GeometryCheck`, 1016 assertions, **zero dependencies** | `gradlew :core:geometryCheck` |
-| `fabric` GameTests | 5 scenarios in a real world | `gradlew :fabric:runGameTest` |
+| `core/src/test` | 17 JUnit tests | `gradlew :core:test` |
+| `core/src/verify` | `GeometryCheck`, 1873 assertions, **zero dependencies** | `gradlew :core:geometryCheck` |
+| `fabric` GameTests | 10 scenarios in a real world | `gradlew :fabric:runGameTest` |
 
-**The 1016 pure-geometry assertions never caught a single real bug.** That is not a criticism of
+**The 1873 pure-geometry assertions never caught a single real bug.** That is not a criticism of
 them — `DoorLayout` is a pure function of coordinates and was never wrong. Every bug lived at the
-boundary with the world, which is why the GameTests exist and why each of the five guards a bug
+boundary with the world, which is why the GameTests exist and why each of the ten guards a bug
 that actually happened. See D-33.
+
+Three of them were written after the fact: the two-way saloon door shipped with defects that no
+assertion caught and that were found by standing in front of the door and looking at it (D-36).
 
 `GeometryCheck` lives in its own source set on purpose: it is a program with `main()`, not a
 JUnit test. It runs with nothing but a JDK — no Gradle, no Minecraft:
@@ -181,6 +200,8 @@ codebase look odd until you know the reason:
 - opening and closing runs behind a thread-local transaction guard (D-29)
 - copper conversions are detected in `onPlace`, not intercepted at the item (D-31)
 - saloon doors are built from stacked boxes rather than one, so the arch has a silhouette (D-35)
+- every leaf has two models, in its frame and swung out of it, differing only in mirrored UVs (D-36)
+- a leaf's rotation comes from its pivot, never from the direction it swung (D-36)
 
 ## License
 

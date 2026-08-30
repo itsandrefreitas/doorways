@@ -136,6 +136,23 @@ def window(px, pal, role):
 # leaves the sill about a third of a block off the ground.
 SALOON_SILL = 11
 
+# Where the 3-thick leaf sits across its block, and why a spring door needs both.
+#
+# A blockstate rotates a model about the centre of its block, not about the hinge. A flush
+# slice rotated 90 degrees lands flush against the next face, which is what makes every vanilla
+# door look hinged. A centred slice rotated about the centre stays centred -- it becomes a bar
+# lying across the middle of the block, at right angles to the doorway and attached to nothing.
+#
+# So the swung states keep the flush box, exactly like every other door, and only the closed
+# state uses the centred one. The pivot appears to shift by a pixel and a half between the two,
+# which nobody can see, and in exchange the leaf hangs in the middle of its frame where a saloon
+# door belongs.
+#
+# CENTRED is duplicated in WideDoorBlock.CENTRED_LEAF_SHAPES, the collision side of this shape.
+# Change one without the other and the door will look one way and stop you in another.
+LEAF_FLUSH = (0, 3)
+LEAF_CENTRED = (6.5, 9.5)
+
 # The arch peaks at row 2 in the middle of a column and falls to row 6 at its edges.
 SALOON_CROWN = 2
 SALOON_SPRING = 6
@@ -176,8 +193,12 @@ def saloon_leaf(pal, half, role):
                 px[y][x] = pal["WOOD"]
             elif y <= head + 1 or y >= foot - 2:
                 px[y][x] = pal["WOOD"]            # the rails that hold the spindles
-            elif x % 3 == 2:
-                px[y][x] = NONE                   # daylight between the spindles
+            elif x % 3 == 0:
+                # Daylight between the spindles. The phase leaves the column beside each stile
+                # solid, which is what gives the leaf an end cap: the narrow faces sample the
+                # three columns next to their own end, and a gap there would let you see
+                # straight into the box from the side.
+                px[y][x] = NONE
             else:
                 px[y][x] = pal["WOOD_HI"]
 
@@ -323,32 +344,67 @@ def leaf_texture(pal, vanilla, half, role, style):
     return door_texture(pal, half, role, style == "glazed" and half == "top")
 
 
-def leaf_model(face_tex):
+def mirror_faces(faces, mirrored):
+    """Reverses the texture across the leaf, the way vanilla's *_open models do.
+
+    Opening turns the leaf the opposite way about its hinge, which reverses which end of the
+    texture points at the frame. Vanilla ships a second model per half for exactly this -- its
+    door_bottom_left_open is door_bottom_left with the west and east UVs swapped. Without it the
+    ironwork drawn on the hinge edge ends up at the free end of the leaf once it swings.
+
+    Only the four upright faces are touched. The top and bottom are 3-pixel slivers where it
+    could not be seen, and they carry a rotation that would send the mirror down the wrong axis.
+    """
+    if not mirrored:
+        return faces
+    out = {}
+    for name, face in faces.items():
+        if name in ("west", "east", "north", "south"):
+            uv = list(face["uv"])
+            uv[0], uv[2] = uv[2], uv[0]
+            face = dict(face, uv=uv)
+        out[name] = face
+    return out
+
+
+def leaf_model(face_tex, mirrored=False):
     """Geometry copied from vanilla door_bottom_left: a 3/16 slice on the X axis, with the
-    wide faces to west/east."""
+    wide faces to west/east. Mirrored, it is vanilla's door_bottom_left_open."""
+    faces = {
+        "west": {"texture": "#face", "uv": [0, 0, 16, 16]},
+        "east": {"texture": "#face", "uv": [16, 0, 0, 16]},
+        "north": {"texture": "#face", "uv": [3, 0, 0, 16]},
+        "south": {"texture": "#face", "uv": [0, 0, 3, 16]},
+        "up": {"texture": "#face", "uv": [0, 0, 3, 16], "rotation": 270},
+        "down": {"texture": "#face", "uv": [16, 13, 0, 16], "rotation": 90},
+    }
     return {
         "ambientocclusion": False,
         "textures": {"particle": face_tex, "face": face_tex},
         "elements": [{
             "from": [0, 0, 0], "to": [3, 16, 16],
-            "faces": {
-                "west": {"texture": "#face", "uv": [0, 0, 16, 16]},
-                "east": {"texture": "#face", "uv": [16, 0, 0, 16]},
-                "north": {"texture": "#face", "uv": [3, 0, 0, 16]},
-                "south": {"texture": "#face", "uv": [0, 0, 3, 16]},
-                "up": {"texture": "#face", "uv": [0, 0, 3, 16], "rotation": 270},
-                "down": {"texture": "#face", "uv": [16, 13, 0, 16], "rotation": 90},
-            },
+            "faces": mirror_faces(faces, mirrored),
         }],
     }
 
 
-def leaf_box(z0, z1, y0, y1, faces):
+def leaf_box(z0, z1, y0, y1, faces, span, mirrored):
     """One box of a leaf, with the UV conventions taken from the vanilla door template.
 
     The texture's 16-wide axis runs along z, and v counts down from the top of the block, so a
     box between y0 and y1 shows texture rows 16-y1 to 16-y0. For a full-height box these
     formulas reproduce block/door_bottom_left exactly.
+
+    `span` is where the 3-thick slice sits along x -- LEAF_FLUSH or LEAF_CENTRED. The UVs do not
+    depend on it: the wide faces do not care where the slice sits, and the narrow ones are 3
+    across either way.
+
+    The narrow end faces sample the three columns beside their <b>own</b> end, rather than the
+    three at the texture's edge that the vanilla template uses. Vanilla can use the edge because
+    its box always spans the full width, so the edge is the end. An arch step does not: it stops
+    partway, and the texture's edge columns are transparent at the rows an arch step covers --
+    the arch is low there. Sampling them leaves the step with no end cap, and the door reads as
+    hollow the moment you look at it from the side.
     """
     v0, v1 = H - y1, H - y0
     out = {}
@@ -357,17 +413,18 @@ def leaf_box(z0, z1, y0, y1, faces):
     if "east" in faces:
         out["east"] = {"texture": "#face", "uv": [z1, v0, z0, v1]}
     if "north" in faces:
-        out["north"] = {"texture": "#face", "uv": [3, v0, 0, v1]}
+        out["north"] = {"texture": "#face", "uv": [z0 + 3, v0, z0, v1]}
     if "south" in faces:
-        out["south"] = {"texture": "#face", "uv": [0, v0, 3, v1]}
+        out["south"] = {"texture": "#face", "uv": [z1 - 3, v0, z1, v1]}
     if "up" in faces:
         out["up"] = {"texture": "#face", "uv": [z0, v0 + 3, z1, v0], "rotation": 90}
     if "down" in faces:
         out["down"] = {"texture": "#face", "uv": [z1, v1 - 3, z0, v1], "rotation": 90}
-    return {"from": [0, y0, z0], "to": [3, y1, z1], "faces": out}
+    return {"from": [span[0], y0, z0], "to": [span[1], y1, z1],
+            "faces": mirror_faces(out, mirrored)}
 
 
-def saloon_leaf_model(face_tex, half):
+def saloon_leaf_model(face_tex, half, span, mirrored=False):
     """A leaf cut to the panel, with the arch built as steps.
 
     A box has a flat top, so a single one cannot follow an arch: set it at the highest point and
@@ -384,17 +441,17 @@ def saloon_leaf_model(face_tex, half):
     sides = ("north", "south", "west", "east")
 
     if half == "bottom":
-        elements = [leaf_box(0, W, H - SALOON_SILL, H, sides + ("down",))]
+        elements = [leaf_box(0, W, H - SALOON_SILL, H, sides + ("down",), span, mirrored)]
     else:
         heads = [saloon_head(x) for x in range(W)]
         lowest = max(heads)
-        elements = [leaf_box(0, W, 0, H - lowest, sides + ("up",))]
+        elements = [leaf_box(0, W, 0, H - lowest, sides + ("up",), span, mirrored)]
 
         previous = lowest
         for head in sorted({h for h in heads if h < lowest}, reverse=True):
             covered = [x for x in range(W) if heads[x] <= head]
             elements.append(leaf_box(min(covered), max(covered) + 1,
-                                     H - previous, H - head, sides + ("up",)))
+                                     H - previous, H - head, sides + ("up",), span, mirrored))
             previous = head
 
     return {
@@ -471,10 +528,21 @@ def main():
                     write_png(os.path.join(ASSETS, "textures", "block", stem + ".png"),
                               leaf_texture(pal, vanilla, half, role, style))
                     face = f"{MOD}:block/{stem}"
-                    model = (saloon_leaf_model(face, half) if style == "saloon"
-                             else leaf_model(face))
-                    write_json(os.path.join(ASSETS, "models", "block", stem + ".json"), model)
-                    n += 2
+
+                    # Two models per stem, sharing the texture: in the frame, and swung out of
+                    # it. A saloon door moves its box as well, hanging centred while closed.
+                    if style == "saloon":
+                        shut = saloon_leaf_model(face, half, LEAF_CENTRED)
+                        swung = saloon_leaf_model(face, half, LEAF_FLUSH, mirrored=True)
+                    else:
+                        shut = leaf_model(face)
+                        swung = leaf_model(face, mirrored=True)
+
+                    write_json(os.path.join(ASSETS, "models", "block", stem + ".json"), shut)
+                    write_json(os.path.join(ASSETS, "models", "block",
+                                            model_stem(material, style, half, role, swung=True)
+                                            + ".json"), swung)
+                    n += 3
 
             for width in widths:
                 block = block_name(material, width, style)
@@ -647,12 +715,20 @@ def write_recipes(material, craft, style, widths):
     # The door body, four at a time. With the ladder this makes the widest door cost exactly
     # one batch. Oxidised and waxed copper have no body recipe -- they come from time or from
     # honeycomb -- but two narrow ones can still be joined into a wide one.
+    #
+    # A saloon door hangs on spring hinges, which is the one mechanism behind everything that
+    # makes it different: it swings both ways, it shuts by itself, and redstone cannot hold it.
+    # Two iron nuggets flank the hinge to pay for it, so the recipe says what the door does.
     if ingredient is not None:
+        spring = style == "saloon"
+        key = {"L": ingredient, "H": f"{MOD}:{HINGE}"}
+        if spring:
+            key["N"] = "minecraft:iron_nugget"
         recipe(named(base), {
             "type": "minecraft:crafting_shaped",
             "category": "building",
-            "key": {"L": ingredient, "H": f"{MOD}:{HINGE}"},
-            "pattern": ["LL ", "LLH", "LL "],
+            "key": key,
+            "pattern": ["LLN", "LLH", "LLN"] if spring else ["LL ", "LLH", "LL "],
             "result": {"count": 4, "id": f"{MOD}:{named(base)}"},
         })
 

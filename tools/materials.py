@@ -95,15 +95,27 @@ def block_name(material, width, style):
     return f"{material}{STYLE_INFIX[style]}_doorway_{width}"
 
 
-def model_stem(material, style, half, role):
+def model_stem(material, style, half, role, swung=False):
     """The model and texture stem for one half of one column.
 
     Glazed doors are the exception: only the upper half differs from a solid door, so the lower
     half reuses the solid texture instead of duplicating it per material.
+
+    Every door needs two models per stem, the way vanilla does: opening turns the leaf the other
+    way about its hinge, which reverses the texture across it. The plain stem is the closed one
+    and `_open` its swung counterpart -- vanilla's own door_bottom_left and
+    door_bottom_left_open. A saloon door differs in the box as well as the UVs, since it hangs
+    centred in its frame and lies flush once swung.
+
+    The texture is always named by the plain stem: the box and the UVs move, the pixels do not.
+
+    DoorStyle.modelStem mirrors this, and the two must agree or a blockstate ends up pointing at
+    a model nobody wrote.
     """
     upper = half == "top"
     infix = "" if (style == "glazed" and not upper) else STYLE_INFIX[style]
-    return f"{material}{infix}_doorway_{half}_{role}"
+    stem = f"{material}{infix}_doorway_{half}_{role}"
+    return stem + "_open" if swung else stem
 
 
 def display_name(label, width, style):

@@ -1,6 +1,7 @@
 package com.doorways.fabric.datagen;
 
 import com.doorways.Doorways;
+import com.doorways.block.DoorSwing;
 import com.doorways.block.DoorVariant;
 import com.doorways.block.WideDoorBlock;
 import com.doorways.block.WideDoorGeometry;
@@ -25,7 +26,7 @@ import net.minecraft.world.level.block.state.properties.DoorHingeSide;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 
 /**
- * Generates the doors' 168 blockstates from the real geometry.
+ * Generates the doors' 200 blockstates from the real geometry.
  *
  * <p>Blockstates decide which way a leaf faces, so they must derive from the same
  * {@link DoorLayout} and {@link WideDoorGeometry#leafDirection} the block uses in game. Any
@@ -34,7 +35,9 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
  *
  * <p>{@code POWERED} is left out of the dispatch deliberately (D-24): the keys omit it and each
  * variant serves both values, exactly as vanilla does. That leaves five properties, which is
- * what {@code PropertyDispatch} supports.
+ * exactly what {@code PropertyDispatch} supports -- and the reason {@code SWING} had to replace
+ * the boolean {@code open} rather than sit alongside it. A sixth property could not be
+ * generated at all.
  */
 public class DoorwayBlockStateProvider extends FabricModelProvider {
 
@@ -79,15 +82,15 @@ public class DoorwayBlockStateProvider extends FabricModelProvider {
                                 WideDoorBlock.FACING,
                                 WideDoorBlock.HALF,
                                 WideDoorBlock.HINGE,
-                                WideDoorBlock.OPEN,
+                                WideDoorBlock.SWING,
                                 WideDoorBlock.PART)
-                        .generate((facing, half, hinge, open, part) ->
-                                variantFor(variant, door, facing, half, hinge, open, part)));
+                        .generate((facing, half, hinge, swing, part) ->
+                                variantFor(variant, door, facing, half, hinge, swing, part)));
     }
 
     private static MultiVariant variantFor(DoorVariant variant, WideDoorBlock door,
                                            Direction facing, DoubleBlockHalf half,
-                                           DoorHingeSide hinge, boolean open, int part) {
+                                           DoorHingeSide hinge, DoorSwing swing, int part) {
         DoorLayout layout = DoorLayout.of(
                 WideDoorGeometry.toCore(facing),
                 door.width(),
@@ -98,8 +101,9 @@ public class DoorwayBlockStateProvider extends FabricModelProvider {
         // those states instead of blowing up during generation.
         int column = Math.min(part, door.width() - 1);
 
-        MultiVariant model = BlockModelGenerators.plainVariant(modelId(variant, half, column));
-        Quadrant rotation = yRotation(WideDoorGeometry.leafDirection(layout, column, open));
+        MultiVariant model = BlockModelGenerators.plainVariant(modelId(variant, half, column, swing));
+        Quadrant rotation = yRotation(WideDoorGeometry.leafDirection(
+                layout, column, WideDoorGeometry.toCore(swing)));
         return rotation == Quadrant.R0 ? model : model.with(VariantMutator.Y_ROT.withValue(rotation));
     }
 
@@ -120,12 +124,15 @@ public class DoorwayBlockStateProvider extends FabricModelProvider {
     /**
      * One column's model, shared across all widths.
      *
-     * <p>Two rules. Only the end columns of the whole door carry a frame, and only on their
-     * outer edges; the middle ones are smooth on both sides so leaves meet without a seam. And
-     * the glass is only in the <b>upper</b> half -- the lower one uses the plain model of the
-     * same material, so no {@code *_glass_doorway_bottom_*} file exists.
+     * <p>Three rules. Only the end columns of the whole door carry a frame, and only on their
+     * outer edges; the middle ones are smooth on both sides so leaves meet without a seam. The
+     * glass is only in the <b>upper</b> half -- the lower one uses the plain model of the same
+     * material, so no {@code *_glass_doorway_bottom_*} file exists. And every door has a second
+     * model for the swung states, whose texture is mirrored across the leaf -- the same reason
+     * vanilla ships {@code door_bottom_left_open} alongside {@code door_bottom_left}.
      */
-    private static Identifier modelId(DoorVariant variant, DoubleBlockHalf half, int column) {
+    private static Identifier modelId(DoorVariant variant, DoubleBlockHalf half, int column,
+                                      DoorSwing swing) {
         int width = variant.width();
         String role = width == 1 ? "single"
                 : column == 0 ? "left"
@@ -133,6 +140,6 @@ public class DoorwayBlockStateProvider extends FabricModelProvider {
                 : "mid";
         return Identifier.fromNamespaceAndPath(Doorways.MOD_ID, "block/"
                 + variant.style().modelStem(variant.material().name(),
-                        half == DoubleBlockHalf.UPPER, role));
+                        half == DoubleBlockHalf.UPPER, role, swing != DoorSwing.CLOSED));
     }
 }

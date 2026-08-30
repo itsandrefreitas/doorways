@@ -17,17 +17,19 @@ import java.util.Set;
  * line. Closed, column {@code i} sits at {@code R * i}.
  *
  * <h2>Opening rule</h2>
- * The leaf rotates 90° about its hinge and <b>always</b> swings towards {@code +FACING}, away
- * from whoever placed the door (DECISIONS.md, D-04).
+ * The leaf rotates 90° about its hinge, towards {@code +FACING} -- away from whoever placed the
+ * door (DECISIONS.md, D-04). A two-way hinge can also take it the other way, towards
+ * {@code -FACING}; which of the two is {@link Swing}.
  *
- * <p>That yields a single formula covering all four widths and both modes:
+ * <p>That yields a single formula covering all four widths, both modes and both directions:
  *
  * <pre>
- *   openOffset(part) = R * hingePart + FACING * |part - hingePart|
+ *   openOffset(part, swing) = R * hingePart + swingAxis(swing) * |part - hingePart|
  * </pre>
  *
  * The hinge column stays where it was; the rest unfold perpendicular to the wall, at whatever
- * distance they were from the hinge.
+ * distance they were from the hinge. Only the sign of the second term tells the two directions
+ * apart, which is why one formula still covers both.
  */
 public record DoorLayout(Facing facing, int width, DoorMode mode, Hinge hinge) {
 
@@ -54,16 +56,21 @@ public record DoorLayout(Facing facing, int width, DoorMode mode, Hinge hinge) {
     }
 
     /**
-     * The direction the leaves swing towards.
+     * The direction the leaves travel in, for a given open state.
      *
-     * <p>{@code FACING} is where the player was looking when placing the door, so swinging
-     * towards {@code +FACING} means swinging <b>away from whoever placed it</b> -- into the
-     * opening, not backwards. This was once inverted, and it only showed at widths 3 and 4:
-     * widths 1 and 2 do not translate, the leaf rotates inside its own block and the error
-     * never surfaced.
+     * <p>{@code FACING} is where the player was looking when placing the door, so
+     * {@link Swing#OUT} means swinging <b>away from whoever placed it</b> -- into the opening,
+     * not backwards. This was once inverted, and it only showed at widths 3 and 4: widths 1 and
+     * 2 do not translate, the leaf rotates inside its own block and the error never surfaced.
+     *
+     * @throws IllegalArgumentException for {@link Swing#CLOSED}, which travels nowhere
      */
-    public Facing swingAxis() {
-        return facing;
+    public Facing swingAxis(Swing swing) {
+        return switch (swing) {
+            case OUT -> facing;
+            case BACK -> facing.opposite();
+            case CLOSED -> throw new IllegalArgumentException("a closed leaf has no swing axis");
+        };
     }
 
     /**
@@ -109,43 +116,44 @@ public record DoorLayout(Facing facing, int width, DoorMode mode, Hinge hinge) {
         return wallAxis().vec().times(part);
     }
 
-    public Vec2i openOffset(int part) {
+    public Vec2i openOffset(int part, Swing swing) {
         int pivot = hingePart(part);
         return wallAxis().vec().times(pivot)
-                .plus(swingAxis().vec().times(Math.abs(part - pivot)));
+                .plus(swingAxis(swing).vec().times(Math.abs(part - pivot)));
     }
 
-    public Vec2i offset(int part, boolean open) {
-        return open ? openOffset(part) : closedOffset(part);
+    public Vec2i offset(int part, Swing swing) {
+        return swing == Swing.CLOSED ? closedOffset(part) : openOffset(part, swing);
     }
 
     /** The occupied offsets, indexed by {@code PART}. */
-    public List<Vec2i> footprint(boolean open) {
+    public List<Vec2i> footprint(Swing swing) {
         List<Vec2i> out = new ArrayList<>(width);
         for (int part = 0; part < width; part++) {
-            out.add(offset(part, open));
+            out.add(offset(part, swing));
         }
         return List.copyOf(out);
     }
 
-    public List<Vec2i> closedFootprint() {
-        return footprint(false);
-    }
-
-    public List<Vec2i> openFootprint() {
-        return footprint(true);
-    }
-
     /**
-     * Positions that must be free in order to move to {@code targetOpen}.
+     * Positions that must be free in order to move from {@code from} to {@code to}.
      *
      * <p>Only the <b>new</b> ones: positions the door already occupies cannot block it from
      * itself (DECISIONS.md, D-06). An empty list means the transition can never be blocked.
+     *
+     * <p>Both ends are named because with three states {@code !target} no longer identifies
+     * where the door is coming from.
+     *
+     * <p>This compares the two ends and nothing in between, which is sound only because every
+     * transition the game performs has {@link Swing#CLOSED} at one end: a leaf swings out of its
+     * frame or back into it. A door does not cross from {@link Swing#BACK} straight to
+     * {@link Swing#OUT} -- it closes first -- and this method would not notice the frame it
+     * swept through if it did.
      */
-    public List<Vec2i> newlyOccupied(boolean targetOpen) {
-        Set<Vec2i> current = new LinkedHashSet<>(footprint(!targetOpen));
+    public List<Vec2i> newlyOccupied(Swing from, Swing to) {
+        Set<Vec2i> current = new LinkedHashSet<>(footprint(from));
         List<Vec2i> out = new ArrayList<>();
-        for (Vec2i target : new LinkedHashSet<>(footprint(targetOpen))) {
+        for (Vec2i target : new LinkedHashSet<>(footprint(to))) {
             if (!current.contains(target)) {
                 out.add(target);
             }
@@ -153,16 +161,14 @@ public record DoorLayout(Facing facing, int width, DoorMode mode, Hinge hinge) {
         return List.copyOf(out);
     }
 
-    /** Positions that stop being occupied when moving to {@code targetOpen}. */
-    public List<Vec2i> released(boolean targetOpen) {
-        Set<Vec2i> target = new LinkedHashSet<>(footprint(targetOpen));
-        List<Vec2i> out = new ArrayList<>();
-        for (Vec2i current : new LinkedHashSet<>(footprint(!targetOpen))) {
-            if (!target.contains(current)) {
-                out.add(current);
-            }
-        }
-        return List.copyOf(out);
+    /**
+     * Positions that stop being occupied on the same move.
+     *
+     * <p>Releasing on the way there is occupying on the way back, so this is the same question
+     * with the ends swapped.
+     */
+    public List<Vec2i> released(Swing from, Swing to) {
+        return newlyOccupied(to, from);
     }
 
     /**
@@ -170,9 +176,12 @@ public record DoorLayout(Facing facing, int width, DoorMode mode, Hinge hinge) {
      *
      * <p>False for widths 1 and 2: the leaf rotates inside its own block, exactly like a
      * vanilla door, and only the model and the collision change (DECISIONS.md, D-07).
+     *
+     * <p>The direction does not enter into it -- the two swings are mirror images, so either
+     * both translate or neither does.
      */
     public boolean movesBlocks() {
-        return !newlyOccupied(true).isEmpty();
+        return !newlyOccupied(Swing.CLOSED, Swing.OUT).isEmpty();
     }
 
     /**
@@ -181,14 +190,14 @@ public record DoorLayout(Facing facing, int width, DoorMode mode, Hinge hinge) {
      *
      * <p>This is what lets any part locate the others with no block entity (§3).
      */
-    public Vec2i origin(Vec2i partPosition, int part, boolean open) {
-        return partPosition.minus(offset(part, open));
+    public Vec2i origin(Vec2i partPosition, int part, Swing swing) {
+        return partPosition.minus(offset(part, swing));
     }
 
     /** Absolute positions of every column, given the origin. */
-    public List<Vec2i> columnsAt(Vec2i origin, boolean open) {
+    public List<Vec2i> columnsAt(Vec2i origin, Swing swing) {
         List<Vec2i> out = new ArrayList<>(width);
-        for (Vec2i o : footprint(open)) {
+        for (Vec2i o : footprint(swing)) {
             out.add(origin.plus(o));
         }
         return List.copyOf(out);

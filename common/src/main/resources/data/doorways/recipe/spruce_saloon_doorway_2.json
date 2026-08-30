@@ -3,12 +3,13 @@
   "category": "building",
   "key": {
     "L": "minecraft:spruce_planks",
-    "H": "doorways:iron_hinge"
+    "H": "doorways:iron_hinge",
+    "N": "minecraft:iron_nugget"
   },
   "pattern": [
-    "LL ",
+    "LLN",
     "LLH",
-    "LL "
+    "LLN"
   ],
   "result": {
     "count": 4,

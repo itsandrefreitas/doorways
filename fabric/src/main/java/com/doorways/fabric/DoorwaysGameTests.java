@@ -7,13 +7,15 @@ import net.minecraft.gametest.framework.GameTestHelper;
 /**
  * Wires the shared scenarios into Fabric's GameTest.
  *
- * <p>Registration only: the bodies live in {@link DoorwayScenarios}, in pure vanilla API, and
- * NeoForge registers the same ones through its bus event. Every method here is one line on
- * purpose -- what is duplicated between loaders is the wiring, never the test.
+ * <p>Registration only: the bodies live in {@link DoorwayScenarios}, written in pure vanilla API
+ * so that NeoForge could register the same ones through its bus event. It does not yet -- the
+ * scenarios run on Fabric alone. They cover shared code, and every method here is one line on
+ * purpose: what would be duplicated between loaders is the wiring, never the test.
  *
  * <p>The methods have to be public, non-static, and take only a {@code GameTestHelper}; that is
- * the annotation's contract. {@code maxTicks} goes well above the default because the redstone
- * scenario waits for the displaced door's 5-tick polling.
+ * the annotation's contract. {@code maxTicks} goes well above the default because two scenarios
+ * wait on a timer: the redstone one for a displaced door's 5-tick polling, and the saloon one
+ * for the spring's 40-tick return.
  */
 public class DoorwaysGameTests {
 
@@ -42,5 +44,30 @@ public class DoorwaysGameTests {
     @GameTest(maxTicks = TICKS)
     public void widthOneRespectsHinge(GameTestHelper helper) {
         DoorwayScenarios.widthOneRespectsHinge(helper);
+    }
+
+    @GameTest(maxTicks = TICKS)
+    public void saloonSwingsAwayFromThePlayer(GameTestHelper helper) {
+        DoorwayScenarios.saloonSwingsAwayFromThePlayer(helper);
+    }
+
+    @GameTest(maxTicks = TICKS)
+    public void saloonKeepsItsHingeBothWays(GameTestHelper helper) {
+        DoorwayScenarios.saloonKeepsItsHingeBothWays(helper);
+    }
+
+    @GameTest(maxTicks = TICKS)
+    public void saloonClosesItself(GameTestHelper helper) {
+        DoorwayScenarios.saloonClosesItself(helper);
+    }
+
+    @GameTest(maxTicks = TICKS)
+    public void saloonRefusesTheBlockedSide(GameTestHelper helper) {
+        DoorwayScenarios.saloonRefusesTheBlockedSide(helper);
+    }
+
+    @GameTest(maxTicks = TICKS)
+    public void saloonIgnoresRedstone(GameTestHelper helper) {
+        DoorwayScenarios.saloonIgnoresRedstone(helper);
     }
 }

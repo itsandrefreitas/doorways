@@ -26,8 +26,12 @@ public final class GeometryCheck {
         checkWidth3OpensAsOneRigidLeaf();
         checkWidth4SplitsIntoTwoLeaves();
         checkSplitIgnoresHinge();
-        checkOpenNeverSwingsBackwards();
+        checkOutNeverSwingsBackwards();
+        checkBackNeverSwingsForwards();
+        checkBackMirrorsOut();
+        checkBothSwingsCostTheSame();
         checkValidationExcludesOwnPositions();
+        checkReleasedIsOccupiedInReverse();
         checkOriginRoundTrips();
         checkAllFourOrientationsAreRotations();
         checkInvalidLayoutsRejected();
@@ -51,7 +55,7 @@ public final class GeometryCheck {
     private static void checkClosedIsContiguousWallLine() {
         forEachLayout(layout -> {
             Vec2i step = layout.wallAxis().vec();
-            List<Vec2i> closed = layout.closedFootprint();
+            List<Vec2i> closed = layout.footprint(Swing.CLOSED);
             for (int i = 0; i < layout.width(); i++) {
                 check(closed.get(i).equals(step.times(i)),
                         desc(layout) + " closed: column " + i + " should be at " + step.times(i)
@@ -63,11 +67,10 @@ public final class GeometryCheck {
     /** No leaf ever overlaps itself, in any state. */
     private static void checkFootprintNeverSelfOverlaps() {
         forEachLayout(layout -> {
-            for (boolean open : new boolean[] {false, true}) {
-                List<Vec2i> fp = layout.footprint(open);
+            for (Swing swing : Swing.values()) {
+                List<Vec2i> fp = layout.footprint(swing);
                 check(new HashSet<>(fp).size() == layout.width(),
-                        desc(layout) + (open ? " open" : " closed")
-                                + ": overlapping columns in " + fp);
+                        desc(layout) + " " + swing + ": overlapping columns in " + fp);
             }
         });
     }
@@ -76,9 +79,11 @@ public final class GeometryCheck {
     private static void checkWidth1And2NeverMoveBlocks() {
         forEachLayout(layout -> {
             if (layout.width() > 2) return;
-            check(layout.closedFootprint().equals(layout.openFootprint()),
-                    desc(layout) + ": width " + layout.width() + " should not move blocks, but "
-                            + layout.closedFootprint() + " -> " + layout.openFootprint());
+            for (Swing swing : OPEN) {
+                check(layout.footprint(Swing.CLOSED).equals(layout.footprint(swing)),
+                        desc(layout) + ": width " + layout.width() + " should not move blocks, but "
+                                + layout.footprint(Swing.CLOSED) + " -> " + layout.footprint(swing));
+            }
             check(!layout.movesBlocks(), desc(layout) + ": movesBlocks() should be false");
         });
     }
@@ -88,10 +93,10 @@ public final class GeometryCheck {
         for (Facing facing : Facing.values()) {
             for (Hinge hinge : Hinge.values()) {
                 DoorLayout layout = DoorLayout.of(facing, 3, hinge);
-                Vec2i swing = layout.swingAxis().vec();
+                Vec2i swing = layout.swingAxis(Swing.OUT).vec();
                 Vec2i pivot = layout.closedOffset(hinge == Hinge.LEFT ? 0 : 2);
 
-                List<Vec2i> open = layout.openFootprint();
+                List<Vec2i> open = layout.footprint(Swing.OUT);
                 for (int part = 0; part < 3; part++) {
                     int distance = Math.abs(part - layout.hingePart(part));
                     Vec2i expected = pivot.plus(swing.times(distance));
@@ -100,9 +105,9 @@ public final class GeometryCheck {
                                     + ", was at " + open.get(part));
                 }
                 check(layout.movesBlocks(), desc(layout) + ": width 3 must move blocks");
-                check(layout.newlyOccupied(true).size() == 2,
+                check(layout.newlyOccupied(Swing.CLOSED, Swing.OUT).size() == 2,
                         desc(layout) + ": opening should require 2 new columns, required "
-                                + layout.newlyOccupied(true));
+                                + layout.newlyOccupied(Swing.CLOSED, Swing.OUT));
             }
         }
     }
@@ -112,14 +117,14 @@ public final class GeometryCheck {
         for (Facing facing : Facing.values()) {
             DoorLayout layout = DoorLayout.of(facing, 4, Hinge.LEFT);
             Vec2i wall = layout.wallAxis().vec();
-            Vec2i swing = layout.swingAxis().vec();
+            Vec2i swing = layout.swingAxis(Swing.OUT).vec();
 
             check(layout.hingePart(0) == 0 && layout.hingePart(1) == 0,
                     desc(layout) + ": left half should hinge at PART 0");
             check(layout.hingePart(2) == 3 && layout.hingePart(3) == 3,
                     desc(layout) + ": right half should hinge at PART 3");
 
-            List<Vec2i> open = layout.openFootprint();
+            List<Vec2i> open = layout.footprint(Swing.OUT);
             check(open.get(0).equals(Vec2i.ZERO), desc(layout) + ": PART 0 should stay put");
             check(open.get(1).equals(swing), desc(layout) + ": PART 1 should swing to " + swing);
             check(open.get(2).equals(wall.times(3).plus(swing)),
@@ -127,7 +132,7 @@ public final class GeometryCheck {
             check(open.get(3).equals(wall.times(3)), desc(layout) + ": PART 3 should stay put");
 
             // The gap opened at the centre is the two inner columns of the wall line.
-            List<Vec2i> released = layout.released(true);
+            List<Vec2i> released = layout.released(Swing.CLOSED, Swing.OUT);
             check(released.size() == 2 && released.contains(wall) && released.contains(wall.times(2)),
                     desc(layout) + ": the central gap should release " + wall + " and "
                             + wall.times(2) + ", released " + released);
@@ -140,45 +145,99 @@ public final class GeometryCheck {
             for (int width : new int[] {2, 4}) {
                 DoorLayout left = new DoorLayout(facing, width, DoorMode.SPLIT, Hinge.LEFT);
                 DoorLayout right = new DoorLayout(facing, width, DoorMode.SPLIT, Hinge.RIGHT);
-                for (boolean open : new boolean[] {false, true}) {
-                    check(left.footprint(open).equals(right.footprint(open)),
-                            "SPLIT " + width + " " + facing + (open ? " open" : " closed")
+                for (Swing swing : Swing.values()) {
+                    check(left.footprint(swing).equals(right.footprint(swing)),
+                            "SPLIT " + width + " " + facing + " " + swing
                                     + ": HINGE should change nothing, but "
-                                    + left.footprint(open) + " != " + right.footprint(open));
+                                    + left.footprint(swing) + " != " + right.footprint(swing));
                 }
             }
         }
     }
 
-    /** D-04: the leaf always moves away from the placer -- never back towards -FACING. */
-    private static void checkOpenNeverSwingsBackwards() {
+    /** D-04: OUT always moves away from the placer -- never back towards -FACING. */
+    private static void checkOutNeverSwingsBackwards() {
         forEachLayout(layout -> {
-            Vec2i front = layout.facing().vec();
-            for (Vec2i offset : layout.openFootprint()) {
-                int alongFacing = offset.x() * front.x() + offset.z() * front.z();
-                check(alongFacing >= 0,
-                        desc(layout) + " open: " + offset + " moved back towards -FACING ("
+            for (Vec2i offset : layout.footprint(Swing.OUT)) {
+                check(along(offset, layout.facing()) >= 0,
+                        desc(layout) + " OUT: " + offset + " moved back towards -FACING ("
                                 + layout.facing().opposite() + "), should swing towards "
-                                + layout.swingAxis());
+                                + layout.swingAxis(Swing.OUT));
             }
+        });
+    }
+
+    /** The other half of the same rule: BACK never crosses the wall line towards +FACING. */
+    private static void checkBackNeverSwingsForwards() {
+        forEachLayout(layout -> {
+            for (Vec2i offset : layout.footprint(Swing.BACK)) {
+                check(along(offset, layout.facing()) <= 0,
+                        desc(layout) + " BACK: " + offset + " moved forwards towards +FACING ("
+                                + layout.facing() + "), should swing towards "
+                                + layout.swingAxis(Swing.BACK));
+            }
+        });
+    }
+
+    /**
+     * The two swings are mirror images of each other about the wall line.
+     *
+     * <p>This is what makes a two-way door look the same from both sides, and it only holds
+     * because the leaf turns about an axis that lies <b>in</b> the wall line.
+     */
+    private static void checkBackMirrorsOut() {
+        forEachLayout(layout -> {
+            for (int part = 0; part < layout.width(); part++) {
+                Vec2i out = layout.offset(part, Swing.OUT);
+                Vec2i back = layout.offset(part, Swing.BACK);
+
+                check(along(out, layout.wallAxis()) == along(back, layout.wallAxis()),
+                        desc(layout) + " PART " + part + ": " + out + " and " + back
+                                + " should sit at the same place along the wall");
+                check(along(out, layout.facing()) == -along(back, layout.facing()),
+                        desc(layout) + " PART " + part + ": " + out + " and " + back
+                                + " should sit on opposite sides of the wall");
+            }
+        });
+    }
+
+    /** Neither direction may be harder to open than the other. */
+    private static void checkBothSwingsCostTheSame() {
+        forEachLayout(layout -> {
+            int out = layout.newlyOccupied(Swing.CLOSED, Swing.OUT).size();
+            int back = layout.newlyOccupied(Swing.CLOSED, Swing.BACK).size();
+            check(out == back,
+                    desc(layout) + ": OUT needs " + out + " free columns but BACK needs " + back);
         });
     }
 
     /** D-06: a door cannot block itself. */
     private static void checkValidationExcludesOwnPositions() {
         forEachLayout(layout -> {
-            for (boolean target : new boolean[] {true, false}) {
-                Set<Vec2i> current = new HashSet<>(layout.footprint(!target));
-                for (Vec2i pos : layout.newlyOccupied(target)) {
+            for (Swing[] move : MOVES) {
+                Set<Vec2i> current = new HashSet<>(layout.footprint(move[0]));
+                for (Vec2i pos : layout.newlyOccupied(move[0], move[1])) {
                     check(!current.contains(pos),
                             desc(layout) + ": " + pos + " is already occupied by the door and "
-                                    + "should not be validated when "
-                                    + (target ? "opening" : "closing"));
+                                    + "should not be validated when going " + move[0] + " -> "
+                                    + move[1]);
                 }
-                check(new HashSet<>(layout.footprint(target)).size()
-                                == layout.newlyOccupied(target).size()
-                                        + intersectionSize(layout, target),
+                check(new HashSet<>(layout.footprint(move[1])).size()
+                                == layout.newlyOccupied(move[0], move[1]).size()
+                                        + intersectionSize(layout, move[0], move[1]),
                         desc(layout) + ": inconsistent position count");
+            }
+        });
+    }
+
+    /** What one direction takes, the other gives back. */
+    private static void checkReleasedIsOccupiedInReverse() {
+        forEachLayout(layout -> {
+            for (Swing[] move : MOVES) {
+                check(layout.released(move[0], move[1])
+                                .equals(layout.newlyOccupied(move[1], move[0])),
+                        desc(layout) + " " + move[0] + " -> " + move[1]
+                                + ": released and newlyOccupied disagree");
             }
         });
     }
@@ -188,12 +247,12 @@ public final class GeometryCheck {
         Vec2i[] origins = {Vec2i.ZERO, new Vec2i(37, -12), new Vec2i(-500, 900)};
         forEachLayout(layout -> {
             for (Vec2i origin : origins) {
-                for (boolean open : new boolean[] {false, true}) {
-                    List<Vec2i> columns = layout.columnsAt(origin, open);
+                for (Swing swing : Swing.values()) {
+                    List<Vec2i> columns = layout.columnsAt(origin, swing);
                     for (int part = 0; part < layout.width(); part++) {
-                        Vec2i recovered = layout.origin(columns.get(part), part, open);
+                        Vec2i recovered = layout.origin(columns.get(part), part, swing);
                         check(recovered.equals(origin),
-                                desc(layout) + (open ? " open" : " closed") + ": PART " + part
+                                desc(layout) + " " + swing + ": PART " + part
                                         + " at " + columns.get(part) + " reconstructed origin "
                                         + recovered + ", expected " + origin);
                     }
@@ -209,13 +268,13 @@ public final class GeometryCheck {
                 for (Facing facing : Facing.values()) {
                     DoorLayout base = DoorLayout.of(facing, width, hinge);
                     DoorLayout turned = DoorLayout.of(facing.clockwise(), width, hinge);
-                    for (boolean open : new boolean[] {false, true}) {
-                        List<Vec2i> expected = base.footprint(open).stream()
+                    for (Swing swing : Swing.values()) {
+                        List<Vec2i> expected = base.footprint(swing).stream()
                                 .map(GeometryCheck::rotateClockwise).toList();
-                        check(turned.footprint(open).equals(expected),
-                                "width " + width + " " + hinge + (open ? " open" : " closed")
+                        check(turned.footprint(swing).equals(expected),
+                                "width " + width + " " + hinge + " " + swing
                                         + ": " + facing + " rotated should give " + expected
-                                        + ", gave " + turned.footprint(open));
+                                        + ", gave " + turned.footprint(swing));
                     }
                 }
             }
@@ -229,6 +288,8 @@ public final class GeometryCheck {
                 "SPLIT with an odd width");
         checkThrows(() -> DoorLayout.of(Facing.NORTH, 2, Hinge.LEFT).closedOffset(2),
                 "PART outside the range");
+        checkThrows(() -> DoorLayout.of(Facing.NORTH, 2, Hinge.LEFT).swingAxis(Swing.CLOSED),
+                "the swing axis of a closed leaf");
     }
 
     // ---------------------------------------------------------------- report
@@ -237,6 +298,7 @@ public final class GeometryCheck {
     private static void printOffsetTables() {
         System.out.println("Offset tables - relative to column PART 0 when closed");
         System.out.println("R = wall axis (FACING turned 90° CW) - S = swing axis (FACING)");
+        System.out.println("BACK is the same leaf mirrored, which is why it reads as -S");
         for (int width = 1; width <= 4; width++) {
             DoorMode mode = DoorMode.defaultFor(width);
             for (Hinge hinge : Hinge.values()) {
@@ -245,46 +307,71 @@ public final class GeometryCheck {
                 System.out.println();
                 System.out.printf("  width %d - %s%s%n", width, mode,
                         mode == DoorMode.SINGLE ? " - hinge " + hinge : "");
-                System.out.println("    closed : " + symbolic(north, false));
-                System.out.println("    open   : " + symbolic(north, true));
+                System.out.println("    closed : " + symbolic(north, Swing.CLOSED));
+                System.out.println("    out    : " + symbolic(north, Swing.OUT));
+                System.out.println("    back   : " + symbolic(north, Swing.BACK));
                 System.out.println("    moves  : " + (north.movesBlocks()
-                        ? north.newlyOccupied(true).size() + " new columns to validate"
+                        ? north.newlyOccupied(Swing.CLOSED, Swing.OUT).size()
+                                + " new columns to validate, either way"
                         : "nothing (rotates inside its own block)"));
             }
         }
     }
 
-    /** Prints offsets in terms of R and S, valid for any FACING. */
-    private static String symbolic(DoorLayout layout, boolean open) {
-        Vec2i wall = layout.wallAxis().vec();
-        Vec2i swing = layout.swingAxis().vec();
+    /**
+     * Prints offsets in terms of R and S, valid for any FACING.
+     *
+     * <p>S is always the {@code OUT} axis, whatever state is being printed, so that a
+     * {@code BACK} leaf shows up as the negation of the {@code OUT} one instead of both tables
+     * looking identical.
+     */
+    private static String symbolic(DoorLayout layout, Swing swing) {
+        Facing wall = layout.wallAxis();
+        Facing out = layout.swingAxis(Swing.OUT);
         List<String> terms = new ArrayList<>();
-        for (Vec2i offset : layout.footprint(open)) {
-            int r = offset.x() * wall.x() + offset.z() * wall.z();
-            int s = offset.x() * swing.x() + offset.z() * swing.z();
+        for (Vec2i offset : layout.footprint(swing)) {
+            int r = along(offset, wall);
+            int s = along(offset, out);
             List<String> parts = new ArrayList<>();
             if (!term(r, "R").isEmpty()) parts.add(term(r, "R"));
             if (!term(s, "S").isEmpty()) parts.add(term(s, "S"));
-            terms.add(parts.isEmpty() ? "0" : String.join("+", parts));
+            terms.add(parts.isEmpty() ? "0" : String.join("+", parts).replace("+-", "-"));
         }
         return String.join("   ", terms);
     }
 
     private static String term(int n, String axis) {
         if (n == 0) return "";
-        return (n == 1 ? "" : n + "") + axis;
+        return (n == 1 ? "" : n == -1 ? "-" : n + "") + axis;
     }
 
     // --------------------------------------------------------------- helpers
+
+    private static final Swing[] OPEN = {Swing.OUT, Swing.BACK};
+
+    /**
+     * The transitions the game performs. Every one has {@code CLOSED} at an end: a leaf swings
+     * out of its frame or back into it, and never crosses straight from one side to the other.
+     */
+    private static final List<Swing[]> MOVES = List.of(
+            new Swing[] {Swing.CLOSED, Swing.OUT},
+            new Swing[] {Swing.OUT, Swing.CLOSED},
+            new Swing[] {Swing.CLOSED, Swing.BACK},
+            new Swing[] {Swing.BACK, Swing.CLOSED});
 
     private static Vec2i rotateClockwise(Vec2i v) {
         return new Vec2i(-v.z(), v.x());
     }
 
-    private static int intersectionSize(DoorLayout layout, boolean target) {
-        Set<Vec2i> current = new HashSet<>(layout.footprint(!target));
+    /** How far {@code offset} reaches along {@code axis}, signed. */
+    private static int along(Vec2i offset, Facing axis) {
+        return offset.x() * axis.dx + offset.z() * axis.dz;
+    }
+
+    private static int intersectionSize(DoorLayout layout, Swing from, Swing to) {
+        Set<Vec2i> current = new HashSet<>(layout.footprint(from));
         int shared = 0;
-        for (Vec2i pos : new HashSet<>(layout.footprint(target))) {
+        for (Vec2i pos : new HashSet<>(layout.footprint(to))) {
             if (current.contains(pos)) shared++;
         }
         return shared;

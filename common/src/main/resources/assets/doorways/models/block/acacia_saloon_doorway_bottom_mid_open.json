@@ -1,0 +1,69 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "doorways:block/acacia_saloon_doorway_bottom_mid",
+    "face": "doorways:block/acacia_saloon_doorway_bottom_mid"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        5,
+        0
+      ],
+      "to": [
+        3,
+        16,
+        16
+      ],
+      "faces": {
+        "west": {
+          "texture": "#face",
+          "uv": [
+            16,
+            0,
+            0,
+            11
+          ]
+        },
+        "east": {
+          "texture": "#face",
+          "uv": [
+            0,
+            0,
+            16,
+            11
+          ]
+        },
+        "north": {
+          "texture": "#face",
+          "uv": [
+            0,
+            0,
+            3,
+            11
+          ]
+        },
+        "south": {
+          "texture": "#face",
+          "uv": [
+            16,
+            0,
+            13,
+            11
+          ]
+        },
+        "down": {
+          "texture": "#face",
+          "uv": [
+            16,
+            8,
+            0,
+            11
+          ],
+          "rotation": 90
+        }
+      }
+    }
+  ]
+}

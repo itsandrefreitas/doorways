@@ -4,7 +4,7 @@ The project started from a Portuguese specification document, kept outside this 
 This document records the **explicit later changes** that the spec itself anticipates, settles
 the decisions it left open, and is the source of truth wherever the two disagree.
 
-Status: **v0.3** · Last updated: 2026-08-30
+Status: **v0.4** · Last updated: 2026-08-30
 
 This is not a changelog. It records *why* each non-obvious choice was made — including the ones
 that were wrong first. If you are here to contribute, this file is worth more than the code.
@@ -313,6 +313,10 @@ work. It is a replaceable base, not a final result.
 `FACING`(4) × `OPEN`(2) × `HALF`(2) × `HINGE`(2) × `PART`(≤4) ⇒ **up to 128 blockstate variants
 per block**. Writing that by hand is impractical.
 
+> **Now 192.** `OPEN` became the three-valued `SWING` in D-36. The count matters less than the
+> shape: five properties is exactly what `PropertyDispatch` holds, which is why the third state
+> had to replace the boolean rather than join it.
+
 An explicit **datagen** step enters the development sequence, before polish — not as the last
 clause of §14. See D-34 for what actually ended up in datagen, and why not everything did.
 
@@ -397,6 +401,94 @@ the daemon itself runs on it. Removed.
 > was never verified against anything.
 
 Gradle stays on **9.5.1**, as Fabric recommends.
+
+---
+
+## D-36 — Saloon doors swing both ways, and shut by themselves
+
+A saloon door hangs on **double-acting spring hinges**. That is one mechanism, and it is worth
+naming it as one, because it explains three behaviours that would otherwise look like three
+unrelated features:
+
+- it swings to either side, away from whoever pushes it;
+- it returns to its frame on its own, after 40 ticks;
+- it ignores redstone entirely.
+
+The last is not a shortcut. A spring hinge has no latch -- there is no position it can be held
+in. A signal saying "stay open" and a spring saying "come back" would only fight, and whichever
+won would make the other look broken. `DoorStyle.springLoaded()` is therefore a single flag, and
+the recipe pays for it with two iron nuggets flanking the hinge.
+
+### Three states, not a boolean
+
+`OPEN` had to become `SWING`: `closed`, `out`, `back`. Every part reconstructs the whole door by
+subtracting its own offset from its own position (§3), and that offset depends on which way the
+leaf swung. A column that could not tell the two apart would not find the rest of its door.
+
+It had to **replace** the boolean rather than sit beside it. `PropertyDispatch` holds five
+properties and the dispatch already used all five. A sixth could not have been generated at all.
+
+Two other things fell out of the change. `newlyOccupied` can no longer derive where the door is
+coming from — `!target` means nothing with three states — so it names both ends; and `released`
+turned out to be `newlyOccupied` with the ends swapped, which removed a near-duplicate loop.
+
+> **A door never crosses from one side straight to the other.** Every transition has `CLOSED` at
+> an end. The blocked-position check compares the two ends and nothing in between, which is only
+> sound because of that.
+
+### The same mistake, three times
+
+Three defects shipped between writing this and looking at it, and they were one mistake wearing
+different clothes: **the model says where the leaf points, the geometry says where the columns
+are, and I kept deriving one from the other.**
+
+| What I did | What happened |
+|---|---|
+| Centred the leaf, arguing it made the swings symmetric | It never did — a flush leaf rotated ±90° already lands on the two opposite faces. What centring actually bought was the leaf hanging in the middle of its frame, which is an aesthetic reason, and I sold it as a necessity |
+| Kept the centred box for the open states too | A blockstate turns a model about the centre of its **block**, not about the hinge. A centred box rotated 90° stays centred: a bar across the doorway, attached to nothing |
+| Derived the leaf's rotation from the swing direction | A hinge does not move when the door is pushed the other way. The leaves ended up meeting in the middle of the opening |
+
+None of these failed a test. All three were caught by looking at the door.
+
+### What vanilla already knew
+
+Two of the fixes were already sitting in the vanilla jar.
+
+A door needs **two models per half**, not one: `door_bottom_left` and `door_bottom_left_open`
+differ only by the west and east UVs being swapped. Opening turns the leaf the other way about
+its hinge, which reverses which end of the texture faces the frame; with one model the ironwork
+jumps to the free end the moment the door opens. Our rotations already matched vanilla's exactly
+(270 closed, 0 and 180 open) — only the second model was missing.
+
+The other was a hole. The narrow end faces of a leaf sample the three columns at the texture's
+**edge**, which the vanilla template can do because its box always spans the full width. An arch
+step does not: it stops partway, and the texture's edge columns are transparent at the rows an
+arch step covers. The steps had no end caps, and an open door read as hollow from the side. They
+now sample the three columns beside their own end. The spindle gaps moved one column across to
+keep those columns solid, and became symmetric in the process — which the arch already was.
+
+### What the centred leaf still costs
+
+The leaf hangs centred while closed and flush once swung, which fixes the shape but not the
+hinge. With the closed leaf centred, the pivot lies in the middle of the block; open, the leaf
+spans the full depth, so the pivot is in the middle of its **length** rather than at an end. The
+ironwork is drawn at a texture edge, so it lands at an end regardless. Both hinges show from the
+side the door was placed from, one from the other side.
+
+Hanging the leaf flush would resolve it completely, and was offered. Keeping it centred was
+chosen deliberately: the door hanging in the middle of its frame is what the shape is.
+
+> **At width 2 the two swings are indistinguishable once open.** The leaf does not translate
+> (D-07): it lies in its own column, spanning the full depth, with no room left to say which
+> side of the wall it travelled through. Width 4 shows the difference plainly, because there the
+> leaf tips move. Vanilla makes the same compromise with every door it draws.
+
+### Saved worlds do not survive this
+
+`open` no longer exists as a property. A door saved by 0.1.0 loads with the default value while
+its blocks sit where the old state put them — the project's central failure, arrived at from a
+new direction. Doors placed in 0.1.0 may need replacing, and the changelog says so. A fixer was
+considered and judged not worth it for a mod one version old.
 
 ---
 
@@ -852,6 +944,7 @@ Nothing taken from those sources may enter `common` without confirming it is pur
 11. ✅ NeoForge module (D-32) — client and dedicated server
 12. ✅ Blockstate datagen from the real geometry (D-34)
 13. ✅ Glass, saloon and bookshelf styles (D-35)
+14. ✅ Two-way, self-closing saloon doors (D-36)
 
 Open: real datagen for the remaining JSON, a distribution jar that excludes the tests, and a
 translucent render layer for the glazed variants.

@@ -39,6 +39,8 @@ public class WeatheringWideDoorBlock extends WideDoorBlock implements Weathering
                         .fieldOf("width").forGetter(WideDoorBlock::width),
                 Codec.STRING.xmap(DoorMode::valueOf, DoorMode::name)
                         .fieldOf("mode").forGetter(WideDoorBlock::mode),
+                Codec.STRING.xmap(DoorStyle::valueOf, DoorStyle::name)
+                        .fieldOf("style").forGetter(WideDoorBlock::style),
                 BlockSetType.CODEC.fieldOf("block_set_type").forGetter(WideDoorBlock::type),
                 WeatherState.CODEC
                         .fieldOf("weathering_state").forGetter(WeatheringWideDoorBlock::getAge),
@@ -47,10 +49,10 @@ public class WeatheringWideDoorBlock extends WideDoorBlock implements Weathering
 
     private final WeatherState weatherState;
 
-    public WeatheringWideDoorBlock(int width, DoorMode mode, BlockSetType type,
+    public WeatheringWideDoorBlock(int width, DoorMode mode, DoorStyle style, BlockSetType type,
                                    WeatherState weatherState,
                                    BlockBehaviour.Properties properties) {
-        super(width, mode, type, properties);
+        super(width, mode, style, type, properties);
         this.weatherState = weatherState;
     }
 

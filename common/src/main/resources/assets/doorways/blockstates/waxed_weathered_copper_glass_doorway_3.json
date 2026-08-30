@@ -1,483 +1,723 @@
 {
   "variants": {
-    "facing=east,half=lower,hinge=left,open=false,part=0": {
+    "facing=east,half=lower,hinge=left,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open",
+      "y": 90
+    },
+    "facing=east,half=lower,hinge=left,part=0,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left"
     },
-    "facing=east,half=lower,hinge=left,open=false,part=1": {
+    "facing=east,half=lower,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open",
+      "y": 90
+    },
+    "facing=east,half=lower,hinge=left,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open",
+      "y": 90
+    },
+    "facing=east,half=lower,hinge=left,part=1,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid"
     },
-    "facing=east,half=lower,hinge=left,open=false,part=2": {
+    "facing=east,half=lower,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open",
+      "y": 90
+    },
+    "facing=east,half=lower,hinge=left,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 90
+    },
+    "facing=east,half=lower,hinge=left,part=2,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right"
     },
-    "facing=east,half=lower,hinge=left,open=false,part=3": {
+    "facing=east,half=lower,hinge=left,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 90
+    },
+    "facing=east,half=lower,hinge=left,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 90
+    },
+    "facing=east,half=lower,hinge=left,part=3,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right"
     },
-    "facing=east,half=lower,hinge=left,open=true,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left",
+    "facing=east,half=lower,hinge=left,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
       "y": 90
     },
-    "facing=east,half=lower,hinge=left,open=true,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid",
-      "y": 90
+    "facing=east,half=lower,hinge=right,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open",
+      "y": 270
     },
-    "facing=east,half=lower,hinge=left,open=true,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 90
-    },
-    "facing=east,half=lower,hinge=left,open=true,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 90
-    },
-    "facing=east,half=lower,hinge=right,open=false,part=0": {
+    "facing=east,half=lower,hinge=right,part=0,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left"
     },
-    "facing=east,half=lower,hinge=right,open=false,part=1": {
+    "facing=east,half=lower,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open",
+      "y": 270
+    },
+    "facing=east,half=lower,hinge=right,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open",
+      "y": 270
+    },
+    "facing=east,half=lower,hinge=right,part=1,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid"
     },
-    "facing=east,half=lower,hinge=right,open=false,part=2": {
+    "facing=east,half=lower,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open",
+      "y": 270
+    },
+    "facing=east,half=lower,hinge=right,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 270
+    },
+    "facing=east,half=lower,hinge=right,part=2,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right"
     },
-    "facing=east,half=lower,hinge=right,open=false,part=3": {
+    "facing=east,half=lower,hinge=right,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 270
+    },
+    "facing=east,half=lower,hinge=right,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 270
+    },
+    "facing=east,half=lower,hinge=right,part=3,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right"
     },
-    "facing=east,half=lower,hinge=right,open=true,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left",
+    "facing=east,half=lower,hinge=right,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
       "y": 270
     },
-    "facing=east,half=lower,hinge=right,open=true,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid",
-      "y": 270
+    "facing=east,half=upper,hinge=left,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open",
+      "y": 90
     },
-    "facing=east,half=lower,hinge=right,open=true,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 270
-    },
-    "facing=east,half=lower,hinge=right,open=true,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 270
-    },
-    "facing=east,half=upper,hinge=left,open=false,part=0": {
+    "facing=east,half=upper,hinge=left,part=0,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left"
     },
-    "facing=east,half=upper,hinge=left,open=false,part=1": {
+    "facing=east,half=upper,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open",
+      "y": 90
+    },
+    "facing=east,half=upper,hinge=left,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open",
+      "y": 90
+    },
+    "facing=east,half=upper,hinge=left,part=1,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid"
     },
-    "facing=east,half=upper,hinge=left,open=false,part=2": {
+    "facing=east,half=upper,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open",
+      "y": 90
+    },
+    "facing=east,half=upper,hinge=left,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 90
+    },
+    "facing=east,half=upper,hinge=left,part=2,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right"
     },
-    "facing=east,half=upper,hinge=left,open=false,part=3": {
+    "facing=east,half=upper,hinge=left,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 90
+    },
+    "facing=east,half=upper,hinge=left,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 90
+    },
+    "facing=east,half=upper,hinge=left,part=3,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right"
     },
-    "facing=east,half=upper,hinge=left,open=true,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left",
+    "facing=east,half=upper,hinge=left,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
       "y": 90
     },
-    "facing=east,half=upper,hinge=left,open=true,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid",
-      "y": 90
+    "facing=east,half=upper,hinge=right,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open",
+      "y": 270
     },
-    "facing=east,half=upper,hinge=left,open=true,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 90
-    },
-    "facing=east,half=upper,hinge=left,open=true,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 90
-    },
-    "facing=east,half=upper,hinge=right,open=false,part=0": {
+    "facing=east,half=upper,hinge=right,part=0,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left"
     },
-    "facing=east,half=upper,hinge=right,open=false,part=1": {
+    "facing=east,half=upper,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open",
+      "y": 270
+    },
+    "facing=east,half=upper,hinge=right,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open",
+      "y": 270
+    },
+    "facing=east,half=upper,hinge=right,part=1,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid"
     },
-    "facing=east,half=upper,hinge=right,open=false,part=2": {
+    "facing=east,half=upper,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open",
+      "y": 270
+    },
+    "facing=east,half=upper,hinge=right,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 270
+    },
+    "facing=east,half=upper,hinge=right,part=2,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right"
     },
-    "facing=east,half=upper,hinge=right,open=false,part=3": {
+    "facing=east,half=upper,hinge=right,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 270
+    },
+    "facing=east,half=upper,hinge=right,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 270
+    },
+    "facing=east,half=upper,hinge=right,part=3,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right"
     },
-    "facing=east,half=upper,hinge=right,open=true,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left",
+    "facing=east,half=upper,hinge=right,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
       "y": 270
     },
-    "facing=east,half=upper,hinge=right,open=true,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid",
-      "y": 270
+    "facing=north,half=lower,hinge=left,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open"
     },
-    "facing=east,half=upper,hinge=right,open=true,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 270
-    },
-    "facing=east,half=upper,hinge=right,open=true,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 270
-    },
-    "facing=north,half=lower,hinge=left,open=false,part=0": {
+    "facing=north,half=lower,hinge=left,part=0,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left",
       "y": 270
     },
-    "facing=north,half=lower,hinge=left,open=false,part=1": {
+    "facing=north,half=lower,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open"
+    },
+    "facing=north,half=lower,hinge=left,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open"
+    },
+    "facing=north,half=lower,hinge=left,part=1,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid",
       "y": 270
     },
-    "facing=north,half=lower,hinge=left,open=false,part=2": {
+    "facing=north,half=lower,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open"
+    },
+    "facing=north,half=lower,hinge=left,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open"
+    },
+    "facing=north,half=lower,hinge=left,part=2,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
       "y": 270
     },
-    "facing=north,half=lower,hinge=left,open=false,part=3": {
+    "facing=north,half=lower,hinge=left,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open"
+    },
+    "facing=north,half=lower,hinge=left,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open"
+    },
+    "facing=north,half=lower,hinge=left,part=3,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
       "y": 270
     },
-    "facing=north,half=lower,hinge=left,open=true,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left"
+    "facing=north,half=lower,hinge=left,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open"
     },
-    "facing=north,half=lower,hinge=left,open=true,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid"
+    "facing=north,half=lower,hinge=right,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open",
+      "y": 180
     },
-    "facing=north,half=lower,hinge=left,open=true,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right"
-    },
-    "facing=north,half=lower,hinge=left,open=true,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right"
-    },
-    "facing=north,half=lower,hinge=right,open=false,part=0": {
+    "facing=north,half=lower,hinge=right,part=0,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left",
       "y": 270
     },
-    "facing=north,half=lower,hinge=right,open=false,part=1": {
+    "facing=north,half=lower,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open",
+      "y": 180
+    },
+    "facing=north,half=lower,hinge=right,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open",
+      "y": 180
+    },
+    "facing=north,half=lower,hinge=right,part=1,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid",
       "y": 270
     },
-    "facing=north,half=lower,hinge=right,open=false,part=2": {
+    "facing=north,half=lower,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open",
+      "y": 180
+    },
+    "facing=north,half=lower,hinge=right,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 180
+    },
+    "facing=north,half=lower,hinge=right,part=2,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
       "y": 270
     },
-    "facing=north,half=lower,hinge=right,open=false,part=3": {
+    "facing=north,half=lower,hinge=right,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 180
+    },
+    "facing=north,half=lower,hinge=right,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 180
+    },
+    "facing=north,half=lower,hinge=right,part=3,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
       "y": 270
     },
-    "facing=north,half=lower,hinge=right,open=true,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left",
+    "facing=north,half=lower,hinge=right,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
       "y": 180
     },
-    "facing=north,half=lower,hinge=right,open=true,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid",
-      "y": 180
+    "facing=north,half=upper,hinge=left,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open"
     },
-    "facing=north,half=lower,hinge=right,open=true,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 180
-    },
-    "facing=north,half=lower,hinge=right,open=true,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 180
-    },
-    "facing=north,half=upper,hinge=left,open=false,part=0": {
+    "facing=north,half=upper,hinge=left,part=0,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left",
       "y": 270
     },
-    "facing=north,half=upper,hinge=left,open=false,part=1": {
+    "facing=north,half=upper,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open"
+    },
+    "facing=north,half=upper,hinge=left,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open"
+    },
+    "facing=north,half=upper,hinge=left,part=1,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid",
       "y": 270
     },
-    "facing=north,half=upper,hinge=left,open=false,part=2": {
+    "facing=north,half=upper,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open"
+    },
+    "facing=north,half=upper,hinge=left,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open"
+    },
+    "facing=north,half=upper,hinge=left,part=2,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
       "y": 270
     },
-    "facing=north,half=upper,hinge=left,open=false,part=3": {
+    "facing=north,half=upper,hinge=left,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open"
+    },
+    "facing=north,half=upper,hinge=left,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open"
+    },
+    "facing=north,half=upper,hinge=left,part=3,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
       "y": 270
     },
-    "facing=north,half=upper,hinge=left,open=true,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left"
+    "facing=north,half=upper,hinge=left,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open"
     },
-    "facing=north,half=upper,hinge=left,open=true,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid"
+    "facing=north,half=upper,hinge=right,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open",
+      "y": 180
     },
-    "facing=north,half=upper,hinge=left,open=true,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right"
-    },
-    "facing=north,half=upper,hinge=left,open=true,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right"
-    },
-    "facing=north,half=upper,hinge=right,open=false,part=0": {
+    "facing=north,half=upper,hinge=right,part=0,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left",
       "y": 270
     },
-    "facing=north,half=upper,hinge=right,open=false,part=1": {
+    "facing=north,half=upper,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open",
+      "y": 180
+    },
+    "facing=north,half=upper,hinge=right,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open",
+      "y": 180
+    },
+    "facing=north,half=upper,hinge=right,part=1,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid",
       "y": 270
     },
-    "facing=north,half=upper,hinge=right,open=false,part=2": {
+    "facing=north,half=upper,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open",
+      "y": 180
+    },
+    "facing=north,half=upper,hinge=right,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 180
+    },
+    "facing=north,half=upper,hinge=right,part=2,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
       "y": 270
     },
-    "facing=north,half=upper,hinge=right,open=false,part=3": {
+    "facing=north,half=upper,hinge=right,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 180
+    },
+    "facing=north,half=upper,hinge=right,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 180
+    },
+    "facing=north,half=upper,hinge=right,part=3,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
       "y": 270
     },
-    "facing=north,half=upper,hinge=right,open=true,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left",
+    "facing=north,half=upper,hinge=right,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
       "y": 180
     },
-    "facing=north,half=upper,hinge=right,open=true,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid",
+    "facing=south,half=lower,hinge=left,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open",
       "y": 180
     },
-    "facing=north,half=upper,hinge=right,open=true,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 180
-    },
-    "facing=north,half=upper,hinge=right,open=true,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 180
-    },
-    "facing=south,half=lower,hinge=left,open=false,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=left,open=false,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=left,open=false,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=left,open=false,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=left,open=true,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left",
-      "y": 180
-    },
-    "facing=south,half=lower,hinge=left,open=true,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid",
-      "y": 180
-    },
-    "facing=south,half=lower,hinge=left,open=true,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 180
-    },
-    "facing=south,half=lower,hinge=left,open=true,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 180
-    },
-    "facing=south,half=lower,hinge=right,open=false,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=right,open=false,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=right,open=false,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=right,open=false,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=right,open=true,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left"
-    },
-    "facing=south,half=lower,hinge=right,open=true,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid"
-    },
-    "facing=south,half=lower,hinge=right,open=true,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right"
-    },
-    "facing=south,half=lower,hinge=right,open=true,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right"
-    },
-    "facing=south,half=upper,hinge=left,open=false,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=left,open=false,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=left,open=false,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=left,open=false,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=left,open=true,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left",
-      "y": 180
-    },
-    "facing=south,half=upper,hinge=left,open=true,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid",
-      "y": 180
-    },
-    "facing=south,half=upper,hinge=left,open=true,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 180
-    },
-    "facing=south,half=upper,hinge=left,open=true,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 180
-    },
-    "facing=south,half=upper,hinge=right,open=false,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=right,open=false,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=right,open=false,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=right,open=false,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=right,open=true,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left"
-    },
-    "facing=south,half=upper,hinge=right,open=true,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid"
-    },
-    "facing=south,half=upper,hinge=right,open=true,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right"
-    },
-    "facing=south,half=upper,hinge=right,open=true,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right"
-    },
-    "facing=west,half=lower,hinge=left,open=false,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left",
-      "y": 180
-    },
-    "facing=west,half=lower,hinge=left,open=false,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid",
-      "y": 180
-    },
-    "facing=west,half=lower,hinge=left,open=false,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 180
-    },
-    "facing=west,half=lower,hinge=left,open=false,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 180
-    },
-    "facing=west,half=lower,hinge=left,open=true,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left",
-      "y": 270
-    },
-    "facing=west,half=lower,hinge=left,open=true,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid",
-      "y": 270
-    },
-    "facing=west,half=lower,hinge=left,open=true,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 270
-    },
-    "facing=west,half=lower,hinge=left,open=true,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 270
-    },
-    "facing=west,half=lower,hinge=right,open=false,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left",
-      "y": 180
-    },
-    "facing=west,half=lower,hinge=right,open=false,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid",
-      "y": 180
-    },
-    "facing=west,half=lower,hinge=right,open=false,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 180
-    },
-    "facing=west,half=lower,hinge=right,open=false,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
-      "y": 180
-    },
-    "facing=west,half=lower,hinge=right,open=true,part=0": {
+    "facing=south,half=lower,hinge=left,part=0,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left",
       "y": 90
     },
-    "facing=west,half=lower,hinge=right,open=true,part=1": {
+    "facing=south,half=lower,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open",
+      "y": 180
+    },
+    "facing=south,half=lower,hinge=left,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open",
+      "y": 180
+    },
+    "facing=south,half=lower,hinge=left,part=1,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid",
       "y": 90
     },
-    "facing=west,half=lower,hinge=right,open=true,part=2": {
+    "facing=south,half=lower,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open",
+      "y": 180
+    },
+    "facing=south,half=lower,hinge=left,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 180
+    },
+    "facing=south,half=lower,hinge=left,part=2,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
       "y": 90
     },
-    "facing=west,half=lower,hinge=right,open=true,part=3": {
+    "facing=south,half=lower,hinge=left,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 180
+    },
+    "facing=south,half=lower,hinge=left,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 180
+    },
+    "facing=south,half=lower,hinge=left,part=3,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
       "y": 90
     },
-    "facing=west,half=upper,hinge=left,open=false,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left",
+    "facing=south,half=lower,hinge=left,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
       "y": 180
     },
-    "facing=west,half=upper,hinge=left,open=false,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid",
+    "facing=south,half=lower,hinge=right,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open"
+    },
+    "facing=south,half=lower,hinge=right,part=0,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open"
+    },
+    "facing=south,half=lower,hinge=right,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open"
+    },
+    "facing=south,half=lower,hinge=right,part=1,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open"
+    },
+    "facing=south,half=lower,hinge=right,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open"
+    },
+    "facing=south,half=lower,hinge=right,part=2,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=right,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open"
+    },
+    "facing=south,half=lower,hinge=right,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open"
+    },
+    "facing=south,half=lower,hinge=right,part=3,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=right,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open"
+    },
+    "facing=south,half=upper,hinge=left,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open",
       "y": 180
     },
-    "facing=west,half=upper,hinge=left,open=false,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 180
-    },
-    "facing=west,half=upper,hinge=left,open=false,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 180
-    },
-    "facing=west,half=upper,hinge=left,open=true,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left",
-      "y": 270
-    },
-    "facing=west,half=upper,hinge=left,open=true,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid",
-      "y": 270
-    },
-    "facing=west,half=upper,hinge=left,open=true,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 270
-    },
-    "facing=west,half=upper,hinge=left,open=true,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 270
-    },
-    "facing=west,half=upper,hinge=right,open=false,part=0": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left",
-      "y": 180
-    },
-    "facing=west,half=upper,hinge=right,open=false,part=1": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid",
-      "y": 180
-    },
-    "facing=west,half=upper,hinge=right,open=false,part=2": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 180
-    },
-    "facing=west,half=upper,hinge=right,open=false,part=3": {
-      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
-      "y": 180
-    },
-    "facing=west,half=upper,hinge=right,open=true,part=0": {
+    "facing=south,half=upper,hinge=left,part=0,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left",
       "y": 90
     },
-    "facing=west,half=upper,hinge=right,open=true,part=1": {
+    "facing=south,half=upper,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open",
+      "y": 180
+    },
+    "facing=south,half=upper,hinge=left,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open",
+      "y": 180
+    },
+    "facing=south,half=upper,hinge=left,part=1,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid",
       "y": 90
     },
-    "facing=west,half=upper,hinge=right,open=true,part=2": {
+    "facing=south,half=upper,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open",
+      "y": 180
+    },
+    "facing=south,half=upper,hinge=left,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 180
+    },
+    "facing=south,half=upper,hinge=left,part=2,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
       "y": 90
     },
-    "facing=west,half=upper,hinge=right,open=true,part=3": {
+    "facing=south,half=upper,hinge=left,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 180
+    },
+    "facing=south,half=upper,hinge=left,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 180
+    },
+    "facing=south,half=upper,hinge=left,part=3,swing=closed": {
       "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
+      "y": 90
+    },
+    "facing=south,half=upper,hinge=left,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 180
+    },
+    "facing=south,half=upper,hinge=right,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open"
+    },
+    "facing=south,half=upper,hinge=right,part=0,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left",
+      "y": 90
+    },
+    "facing=south,half=upper,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open"
+    },
+    "facing=south,half=upper,hinge=right,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open"
+    },
+    "facing=south,half=upper,hinge=right,part=1,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid",
+      "y": 90
+    },
+    "facing=south,half=upper,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open"
+    },
+    "facing=south,half=upper,hinge=right,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open"
+    },
+    "facing=south,half=upper,hinge=right,part=2,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
+      "y": 90
+    },
+    "facing=south,half=upper,hinge=right,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open"
+    },
+    "facing=south,half=upper,hinge=right,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open"
+    },
+    "facing=south,half=upper,hinge=right,part=3,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
+      "y": 90
+    },
+    "facing=south,half=upper,hinge=right,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open"
+    },
+    "facing=west,half=lower,hinge=left,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open",
+      "y": 270
+    },
+    "facing=west,half=lower,hinge=left,part=0,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open",
+      "y": 270
+    },
+    "facing=west,half=lower,hinge=left,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open",
+      "y": 270
+    },
+    "facing=west,half=lower,hinge=left,part=1,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open",
+      "y": 270
+    },
+    "facing=west,half=lower,hinge=left,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 270
+    },
+    "facing=west,half=lower,hinge=left,part=2,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=left,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 270
+    },
+    "facing=west,half=lower,hinge=left,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 270
+    },
+    "facing=west,half=lower,hinge=left,part=3,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=left,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 270
+    },
+    "facing=west,half=lower,hinge=right,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open",
+      "y": 90
+    },
+    "facing=west,half=lower,hinge=right,part=0,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_left_open",
+      "y": 90
+    },
+    "facing=west,half=lower,hinge=right,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open",
+      "y": 90
+    },
+    "facing=west,half=lower,hinge=right,part=1,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_mid_open",
+      "y": 90
+    },
+    "facing=west,half=lower,hinge=right,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 90
+    },
+    "facing=west,half=lower,hinge=right,part=2,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=right,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 90
+    },
+    "facing=west,half=lower,hinge=right,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 90
+    },
+    "facing=west,half=lower,hinge=right,part=3,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=right,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_doorway_bottom_right_open",
+      "y": 90
+    },
+    "facing=west,half=upper,hinge=left,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open",
+      "y": 270
+    },
+    "facing=west,half=upper,hinge=left,part=0,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open",
+      "y": 270
+    },
+    "facing=west,half=upper,hinge=left,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open",
+      "y": 270
+    },
+    "facing=west,half=upper,hinge=left,part=1,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open",
+      "y": 270
+    },
+    "facing=west,half=upper,hinge=left,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 270
+    },
+    "facing=west,half=upper,hinge=left,part=2,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=left,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 270
+    },
+    "facing=west,half=upper,hinge=left,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 270
+    },
+    "facing=west,half=upper,hinge=left,part=3,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=left,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 270
+    },
+    "facing=west,half=upper,hinge=right,part=0,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open",
+      "y": 90
+    },
+    "facing=west,half=upper,hinge=right,part=0,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_left_open",
+      "y": 90
+    },
+    "facing=west,half=upper,hinge=right,part=1,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open",
+      "y": 90
+    },
+    "facing=west,half=upper,hinge=right,part=1,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_mid_open",
+      "y": 90
+    },
+    "facing=west,half=upper,hinge=right,part=2,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 90
+    },
+    "facing=west,half=upper,hinge=right,part=2,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=right,part=2,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 90
+    },
+    "facing=west,half=upper,hinge=right,part=3,swing=back": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
+      "y": 90
+    },
+    "facing=west,half=upper,hinge=right,part=3,swing=closed": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=right,part=3,swing=out": {
+      "model": "doorways:block/waxed_weathered_copper_glass_doorway_top_right_open",
       "y": 90
     }
   }

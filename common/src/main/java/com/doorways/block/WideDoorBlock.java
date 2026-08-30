@@ -3,6 +3,7 @@ package com.doorways.block;
 import com.doorways.core.geometry.DoorLayout;
 import com.doorways.core.geometry.DoorMode;
 import com.doorways.core.geometry.Hinge;
+import com.doorways.core.geometry.Swing;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -55,7 +56,7 @@ import org.jspecify.annotations.Nullable;
  * {@link DoorLayout}, which is pure and tested without the game.
  *
  * <p>The structure uses no block entity: any part reconstructs the origin from its own
- * {@code PART}, {@code FACING}, {@code HINGE} and {@code OPEN} (§3).
+ * {@code PART}, {@code FACING}, {@code HINGE} and {@code SWING} (§3).
  */
 public class WideDoorBlock extends Block {
 
@@ -68,6 +69,10 @@ public class WideDoorBlock extends Block {
                         .xmap(DoorMode::valueOf, DoorMode::name)
                         .fieldOf("mode")
                         .forGetter(b -> b.mode),
+                Codec.STRING
+                        .xmap(DoorStyle::valueOf, DoorStyle::name)
+                        .fieldOf("style")
+                        .forGetter(b -> b.style),
                 BlockSetType.CODEC.fieldOf("block_set_type").forGetter(b -> b.type),
                 propertiesCodec())
             .apply(i, WideDoorBlock::new));
@@ -75,7 +80,21 @@ public class WideDoorBlock extends Block {
     public static final EnumProperty<Direction> FACING = HorizontalDirectionalBlock.FACING;
     public static final EnumProperty<DoubleBlockHalf> HALF = BlockStateProperties.DOUBLE_BLOCK_HALF;
     public static final EnumProperty<DoorHingeSide> HINGE = BlockStateProperties.DOOR_HINGE;
-    public static final BooleanProperty OPEN = BlockStateProperties.OPEN;
+
+    /**
+     * Where the leaf sits: in its frame, or swung to one side of it.
+     *
+     * <p>Three values rather than vanilla's boolean {@code open}, because a door on a spring
+     * hinge can be open on either side and every part has to know which. With no block entity,
+     * a column locates its siblings by subtracting its own offset from its own position (§3) --
+     * and that offset depends on the direction it swung. A part that could not tell the two
+     * apart would not find the rest of its door.
+     *
+     * <p>It costs the fifth and last slot a {@code PropertyDispatch} can hold, which is why
+     * {@code POWERED} could never have joined it in the blockstate files (D-24).
+     */
+    public static final EnumProperty<DoorSwing> SWING =
+            EnumProperty.create("swing", DoorSwing.class);
 
     /**
      * Whether any part of the structure is receiving a redstone signal (D-24).
@@ -94,9 +113,26 @@ public class WideDoorBlock extends Block {
     public static final IntegerProperty PART =
             IntegerProperty.create("part", 0, DoorLayout.MAX_WIDTH - 1);
 
-    /** Leaf thickness, the same as a vanilla door: 3/16 of a block. */
+    /** Leaf thickness, the same as a vanilla door: 3/16 of a block, flush against one face. */
     private static final Map<Direction, VoxelShape> LEAF_SHAPES =
             Shapes.rotateHorizontal(Block.boxZ(16.0, 13.0, 16.0));
+
+    /**
+     * The same leaf, hung down the middle of its block instead of against one face.
+     *
+     * <p>Used by spring doors, and only while they are <b>closed</b>. A saloon door hangs in the
+     * middle of its frame rather than against one side of it, which is what the shape looks
+     * like; but the moment it swings, it has to go back to the flush box every other door uses.
+     * A blockstate turns a model about the centre of its block, not about the hinge, so a
+     * centred box rotated 90° stays centred -- a bar across the middle of the doorway, at right
+     * angles to it and attached to nothing.
+     *
+     * <p>The price is that the pivot appears to shift by a pixel and a half between the two
+     * states, which nobody can see. These numbers are duplicated in {@code tools/gen_assets.py},
+     * which builds the model this collision has to agree with.
+     */
+    private static final Map<Direction, VoxelShape> CENTRED_LEAF_SHAPES =
+            Shapes.rotateHorizontal(Block.boxZ(16.0, 6.5, 9.5));
 
     /**
      * The transaction guard (D-08). While it is active the parts ignore the integrity logic:
@@ -121,21 +157,23 @@ public class WideDoorBlock extends Block {
 
     private final int width;
     private final DoorMode mode;
+    private final DoorStyle style;
     private final BlockSetType type;
 
-    public WideDoorBlock(int width, DoorMode mode, BlockSetType type,
+    public WideDoorBlock(int width, DoorMode mode, DoorStyle style, BlockSetType type,
                          BlockBehaviour.Properties properties) {
         // The sound is chosen by DoorVariant: BlockSetType still supplies the open and
         // close sounds, but step, break and place follow the material.
         super(properties);
         this.width = width;
         this.mode = mode;
+        this.style = style;
         this.type = type;
         registerDefaultState(stateDefinition.any()
                 .setValue(FACING, Direction.NORTH)
                 .setValue(HALF, DoubleBlockHalf.LOWER)
                 .setValue(HINGE, DoorHingeSide.LEFT)
-                .setValue(OPEN, false)
+                .setValue(SWING, DoorSwing.CLOSED)
                 .setValue(POWERED, false)
                 .setValue(PART, 0));
     }
@@ -147,7 +185,7 @@ public class WideDoorBlock extends Block {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, HALF, HINGE, OPEN, POWERED, PART);
+        builder.add(FACING, HALF, HINGE, SWING, POWERED, PART);
     }
 
     public int width() {
@@ -158,8 +196,17 @@ public class WideDoorBlock extends Block {
         return mode;
     }
 
+    public DoorStyle style() {
+        return style;
+    }
+
     public BlockSetType type() {
         return type;
+    }
+
+    /** Where this part's leaf currently sits, in the terms {@code core} uses. */
+    public static Swing swingOf(BlockState state) {
+        return WideDoorGeometry.toCore(state.getValue(SWING));
     }
 
     /**
@@ -200,15 +247,16 @@ public class WideDoorBlock extends Block {
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos,
                                   CollisionContext context) {
-        Direction leaf = WideDoorGeometry.leafDirection(
-                layoutOf(state), partOf(state), state.getValue(OPEN));
-        return LEAF_SHAPES.get(leaf);
+        Swing swing = swingOf(state);
+        Direction leaf = WideDoorGeometry.leafDirection(layoutOf(state), partOf(state), swing);
+        boolean centred = style.springLoaded() && swing == Swing.CLOSED;
+        return (centred ? CENTRED_LEAF_SHAPES : LEAF_SHAPES).get(leaf);
     }
 
     @Override
     protected boolean isPathfindable(BlockState state, PathComputationType type) {
         return switch (type) {
-            case LAND, AIR -> state.getValue(OPEN);
+            case LAND, AIR -> swingOf(state).isOpen();
             case WATER -> false;
         };
     }
@@ -244,17 +292,20 @@ public class WideDoorBlock extends Block {
                     .setValue(PART, clickedPart);
 
             DoorLayout layout = layoutOf(state);
-            BlockPos origin = WideDoorGeometry.origin(clicked, layout, clickedPart, false);
-            List<BlockPos> columns = WideDoorGeometry.columns(origin, layout, false);
+            BlockPos origin = WideDoorGeometry.origin(clicked, layout, clickedPart, Swing.CLOSED);
+            List<BlockPos> columns = WideDoorGeometry.columns(origin, layout, Swing.CLOSED);
             if (!fits(level, context, columns)) {
                 continue;
             }
-            // The door is always placed closed. Setting OPEN here would make the state claim
+            // The door is always placed closed. Setting SWING here would make the state claim
             // "open" while the blocks still sit on the closed footprint, and the next operation
             // would clear the open positions -- which belong to whatever else is there.
+            //
+            // A spring door never records a signal: it cannot be held open, so POWERED would be
+            // a value nobody ever reads.
             return state.setValue(HINGE, pivotFor(clickedPart, aim))
-                    .setValue(OPEN, false)
-                    .setValue(POWERED, hasSignal(level, columns));
+                    .setValue(SWING, DoorSwing.CLOSED)
+                    .setValue(POWERED, !style.springLoaded() && hasSignal(level, columns));
         }
         return null;
     }
@@ -352,8 +403,8 @@ public class WideDoorBlock extends Block {
     public void setPlacedBy(Level level, BlockPos placed, BlockState state,
                             @Nullable LivingEntity by, ItemStack stack) {
         DoorLayout layout = layoutOf(state);
-        BlockPos origin = WideDoorGeometry.origin(placed, layout, partOf(state), false);
-        List<BlockPos> columns = WideDoorGeometry.columns(origin, layout, false);
+        BlockPos origin = WideDoorGeometry.origin(placed, layout, partOf(state), Swing.CLOSED);
+        List<BlockPos> columns = WideDoorGeometry.columns(origin, layout, Swing.CLOSED);
         inTransaction(true);
         try {
             for (int part = 0; part < layout.width(); part++) {
@@ -370,12 +421,12 @@ public class WideDoorBlock extends Block {
         }
 
         // Placed next to an already-active signal: it opens next, through the normal path.
-        // Opening here would mean duplicating the displacement logic, and marking OPEN at
+        // Opening here would mean duplicating the displacement logic, and marking it open at
         // placement would leave the state disagreeing with where the blocks actually are.
         if (state.getValue(POWERED)) {
             BlockState placedState = level.getBlockState(placed);
             if (placedState.is(this)) {
-                apply(level, placedState, placed, true, true, false);
+                apply(level, placedState, placed, Swing.OUT, true, false);
             }
         }
     }
@@ -390,9 +441,21 @@ public class WideDoorBlock extends Block {
      */
     private static final int SIGNAL_POLL_TICKS = 5;
 
+    /**
+     * How long a spring-hinged door stays open: 40 ticks, two seconds.
+     *
+     * <p>Long enough to walk through a 4-wide door without it shutting on your back, short
+     * enough that the spring is what you notice rather than a delay.
+     */
+    private static final int SPRING_CLOSE_TICKS = 40;
+
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        if (!state.getValue(OPEN)) {
+        if (!swingOf(state).isOpen()) {
+            return;
+        }
+        if (style.springLoaded()) {
+            springBack(level, state, pos);
             return;
         }
         onSignalChanged(level, state, pos);
@@ -400,8 +463,25 @@ public class WideDoorBlock extends Block {
         // Keep polling while it stays open. If it closed, it is back in its frame and the
         // normal neighbour updates reach it again.
         BlockState now = level.getBlockState(pos);
-        if (now.is(this) && now.getValue(OPEN)) {
+        if (now.is(this) && swingOf(now).isOpen()) {
             level.scheduleTick(pos, this, SIGNAL_POLL_TICKS);
+        }
+    }
+
+    /**
+     * The spring pulling the leaf back into its frame.
+     *
+     * <p>A blocked close does not give up. Whoever is standing in the doorway is holding the
+     * leaf where it is, and the spring keeps pressing until they move -- which is what a spring
+     * does, and the only behaviour that cannot leave a door stuck open with nothing on screen to
+     * explain why.
+     *
+     * <p>Silent while blocked, deliberately: the locked sound every two seconds for as long as
+     * someone stands in a doorway would be unbearable.
+     */
+    private void springBack(ServerLevel level, BlockState state, BlockPos pos) {
+        if (!apply(level, state, pos, Swing.CLOSED, false, false)) {
+            level.scheduleTick(pos, this, SPRING_CLOSE_TICKS);
         }
     }
 
@@ -409,31 +489,38 @@ public class WideDoorBlock extends Block {
      * Reacts to a signal edge. One path shared by the neighbour update and by the polling.
      */
     private void onSignalChanged(Level level, BlockState state, BlockPos pos) {
-        boolean open = state.getValue(OPEN);
+        Swing swing = swingOf(state);
         DoorLayout layout = layoutOf(state);
-        BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), open);
-        boolean signal = hasSignal(level, WideDoorGeometry.columns(origin, layout, false));
+        BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), swing);
+        boolean signal = hasSignal(level, WideDoorGeometry.columns(origin, layout, Swing.CLOSED));
 
         if (signal == state.getValue(POWERED)) {
             return;
         }
-        if (signal != open && apply(level, state, pos, signal, signal, true)) {
+        // Redstone only ever swings a door the way it was always going to swing: there is no
+        // player to push it, so there is no side to push it from.
+        Swing target = signal ? Swing.OUT : Swing.CLOSED;
+        if (target != swing && apply(level, state, pos, target, signal, true)) {
             return;
         }
         // Either it was already in the right state, or the leaf is obstructed. The new POWERED
         // is stored anyway to consume the edge -- otherwise every neighbour update would retry
         // opening and replay the blocked sound.
-        apply(level, state, pos, open, signal, false);
+        apply(level, state, pos, swing, signal, false);
     }
 
     /**
      * Redstone (D-24). The door opens and closes with the signal, reacting only to <b>edges</b>:
      * while the signal does not change, a door opened by hand stays as it is.
+     *
+     * <p>Spring-hinged styles opt out entirely. A spring has no latch, so a signal holding the
+     * door open and a spring pulling it shut would only fight each other -- see
+     * {@link DoorStyle#springLoaded()}.
      */
     @Override
     protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block block,
                                    @Nullable Orientation orientation, boolean movedByPiston) {
-        if (level.isClientSide() || inTransaction()) {
+        if (level.isClientSide() || inTransaction() || style.springLoaded()) {
             return;
         }
         onSignalChanged(level, state, pos);
@@ -495,14 +582,15 @@ public class WideDoorBlock extends Block {
                 && old != this
                 && old.width == width
                 && old.mode == mode
+                && old.style == style
                 && oldState.getValue(FACING) == state.getValue(FACING)
                 && oldState.getValue(HINGE) == state.getValue(HINGE)
                 && oldState.getValue(HALF) == state.getValue(HALF)
-                && oldState.getValue(OPEN).equals(state.getValue(OPEN))
+                && oldState.getValue(SWING) == state.getValue(SWING)
                 && oldState.getValue(PART).equals(state.getValue(PART));
     }
 
-    /** Interacting with any part toggles the whole door (§5). */
+    /** Interacting with any part moves the whole door (§5). */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
                                                Player player, BlockHitResult hit) {
@@ -512,9 +600,37 @@ public class WideDoorBlock extends Block {
         if (level.isClientSide()) {
             return InteractionResult.SUCCESS;
         }
-        boolean moved = apply(level, state, pos, !state.getValue(OPEN),
+        boolean moved = apply(level, state, pos, nextSwing(state, pos, player),
                 state.getValue(POWERED), true);
         return moved ? InteractionResult.SUCCESS : InteractionResult.CONSUME;
+    }
+
+    /**
+     * Where the leaf goes when a player interacts with it.
+     *
+     * <p>An ordinary door only has one open position, so interacting toggles. A spring door is
+     * <b>pushed</b> rather than opened: it goes away from whoever touched it, which is decided
+     * by which side of the wall line the player is standing on.
+     *
+     * <p>If that side turns out to be obstructed the door refuses, rather than swinging the
+     * other way. Opening towards someone because the far side happened to be blocked is not
+     * something a player can predict, and a door that sometimes comes at you is worse than a
+     * door that sometimes will not budge.
+     */
+    private Swing nextSwing(BlockState state, BlockPos pos, Player player) {
+        if (swingOf(state).isOpen()) {
+            return Swing.CLOSED;
+        }
+        if (!style.springLoaded()) {
+            return Swing.OUT;
+        }
+        Direction facing = state.getValue(FACING);
+        Vec3 fromDoor = player.position().subtract(Vec3.atCenterOf(lowerHalf(state, pos)));
+        double side = fromDoor.x * facing.getStepX() + fromDoor.z * facing.getStepZ();
+
+        // FACING points away from whoever placed the door (D-04), so a player standing on the
+        // +FACING side is in front of the leaf and pushes it back the other way.
+        return side > 0 ? Swing.BACK : Swing.OUT;
     }
 
     /**
@@ -526,14 +642,15 @@ public class WideDoorBlock extends Block {
      * there is nothing that could block.
      */
     private boolean apply(Level level, BlockState state, BlockPos pos,
-                          boolean targetOpen, boolean targetPowered, boolean audible) {
+                          Swing targetSwing, boolean targetPowered, boolean audible) {
         DoorLayout layout = layoutOf(state);
-        boolean open = state.getValue(OPEN);
-        BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), open);
-        boolean moves = targetOpen != open;
+        Swing swing = swingOf(state);
+        BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), swing);
+        boolean moves = targetSwing != swing;
 
         if (moves) {
-            for (BlockPos column : WideDoorGeometry.newlyOccupied(origin, layout, targetOpen)) {
+            for (BlockPos column :
+                    WideDoorGeometry.newlyOccupied(origin, layout, swing, targetSwing)) {
                 if (!isFree(level, column) || !isFree(level, column.above())) {
                     if (audible) {
                         level.playSound(null, pos, SoundEvents.CHEST_LOCKED,
@@ -544,14 +661,15 @@ public class WideDoorBlock extends Block {
             }
         }
 
-        List<BlockPos> from = WideDoorGeometry.columns(origin, layout, open);
-        List<BlockPos> to = WideDoorGeometry.columns(origin, layout, targetOpen);
+        List<BlockPos> from = WideDoorGeometry.columns(origin, layout, swing);
+        List<BlockPos> to = WideDoorGeometry.columns(origin, layout, targetSwing);
 
         // Grass, flowers and carpets in the leaf's path are broken properly, with a drop,
         // instead of vanishing silently when setBlock runs over them. Outside the transaction:
         // these drops are legitimate, unlike those of the door's own parts.
         if (moves) {
-            for (BlockPos column : WideDoorGeometry.newlyOccupied(origin, layout, targetOpen)) {
+            for (BlockPos column :
+                    WideDoorGeometry.newlyOccupied(origin, layout, swing, targetSwing)) {
                 breakLoose(level, column);
                 breakLoose(level, column.above());
             }
@@ -569,7 +687,7 @@ public class WideDoorBlock extends Block {
             }
             for (int part = 0; part < layout.width(); part++) {
                 BlockState lower = state.setValue(PART, part)
-                        .setValue(OPEN, targetOpen)
+                        .setValue(SWING, WideDoorGeometry.toMinecraft(targetSwing))
                         .setValue(POWERED, targetPowered)
                         .setValue(HALF, DoubleBlockHalf.LOWER);
                 level.setBlock(to.get(part), lower, Block.UPDATE_CLIENTS);
@@ -592,20 +710,22 @@ public class WideDoorBlock extends Block {
             level.updateNeighborsAt(column.above(), this);
         }
 
-        // It left its frame: the signal source no longer touches it, so no signal change
-        // reaches it by neighbour update. Polling starts regardless of what opened it -- a door
-        // opened by hand must still react to a plate afterwards.
-        if (targetOpen) {
-            level.scheduleTick(to.get(0), this, SIGNAL_POLL_TICKS);
+        // Two reasons to come back later, and a door only ever needs one of them.
+        //
+        // A spring door is due to close. Every other door has left its frame, so the signal
+        // source no longer touches it and no signal change reaches it by neighbour update --
+        // it has to poll. Polling starts regardless of what opened it: a door opened by hand
+        // must still react to a plate afterwards.
+        if (targetSwing.isOpen()) {
+            level.scheduleTick(to.get(0), this,
+                    style.springLoaded() ? SPRING_CLOSE_TICKS : SIGNAL_POLL_TICKS);
         }
-
-        boolean target = targetOpen;
 
         // A null entity on purpose: on the server, passing the player *excludes* them from
         // receiving the sound. Vanilla can pass it because useWithoutItem also runs client-side
         // and plays the sound locally; this block returns early on the client, so passing the
         // player would leave the sound inaudible to them.
-        level.playSound(null, pos, target ? type.doorOpen() : type.doorClose(),
+        level.playSound(null, pos, targetSwing.isOpen() ? type.doorOpen() : type.doorClose(),
                 SoundSource.BLOCKS, 1.0F, level.getRandom().nextFloat() * 0.1F + 0.9F);
         return true;
     }
@@ -657,10 +777,10 @@ public class WideDoorBlock extends Block {
     /** Every position the structure occupies, in both halves. */
     protected List<BlockPos> structurePositions(BlockState state, BlockPos pos) {
         DoorLayout layout = layoutOf(state);
-        boolean open = state.getValue(OPEN);
-        BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), open);
+        Swing swing = swingOf(state);
+        BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), swing);
         List<BlockPos> all = new ArrayList<>();
-        for (BlockPos column : WideDoorGeometry.columns(origin, layout, open)) {
+        for (BlockPos column : WideDoorGeometry.columns(origin, layout, swing)) {
             all.add(column);
             all.add(column.above());
         }
@@ -676,9 +796,9 @@ public class WideDoorBlock extends Block {
      */
     protected void convertStructure(Level level, BlockState state, BlockPos pos, Block target) {
         DoorLayout layout = layoutOf(state);
-        boolean open = state.getValue(OPEN);
-        BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), open);
-        List<BlockPos> columns = WideDoorGeometry.columns(origin, layout, open);
+        Swing swing = swingOf(state);
+        BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), swing);
+        List<BlockPos> columns = WideDoorGeometry.columns(origin, layout, swing);
 
         inTransaction(true);
         try {
@@ -686,7 +806,7 @@ public class WideDoorBlock extends Block {
                 BlockState lower = target.defaultBlockState()
                         .setValue(FACING, state.getValue(FACING))
                         .setValue(HINGE, state.getValue(HINGE))
-                        .setValue(OPEN, open)
+                        .setValue(SWING, state.getValue(SWING))
                         .setValue(POWERED, state.getValue(POWERED))
                         .setValue(PART, part)
                         .setValue(HALF, DoubleBlockHalf.LOWER);
@@ -746,9 +866,9 @@ public class WideDoorBlock extends Block {
      */
     private void removeRest(Level level, BlockPos pos, BlockState state, boolean dropAnchor) {
         DoorLayout layout = layoutOf(state);
-        boolean open = state.getValue(OPEN);
-        BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), open);
-        List<BlockPos> columns = WideDoorGeometry.columns(origin, layout, open);
+        Swing swing = swingOf(state);
+        BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), swing);
+        List<BlockPos> columns = WideDoorGeometry.columns(origin, layout, swing);
 
         // The anchor -- the lower half of column PART 0 -- is the only part whose loot table
         // drops anything. When the player breaks any other part its loot is empty, so the item

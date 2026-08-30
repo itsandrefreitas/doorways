@@ -199,9 +199,9 @@ public record DoorVariant(Material material, int width, DoorMode mode, DoorStyle
             properties = properties.ignitedByLava();
         }
         if (material.weathering() != null) {
-            return new WeatheringWideDoorBlock(width, mode, material.type(),
+            return new WeatheringWideDoorBlock(width, mode, style, material.type(),
                     material.weathering(), properties.randomTicks());
         }
-        return new WideDoorBlock(width, mode, material.type(), properties);
+        return new WideDoorBlock(width, mode, style, material.type(), properties);
     }
 }

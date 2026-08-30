@@ -24,3 +24,6 @@ logs/
 
 # Store page screenshots, published on Modrinth rather than here
 Screenshots/
+
+# Left behind whenever one generator imports another
+tools/__pycache__/

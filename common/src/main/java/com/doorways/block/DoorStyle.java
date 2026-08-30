@@ -25,8 +25,8 @@ public enum DoorStyle {
     /**
      * A short slatted panel with a gap above and below, in the western idiom.
      *
-     * <p>It opens to one side like every other door here: swinging both ways would mean
-     * recording which way it is open, and that contradicts D-04.
+     * <p>The only style on a spring hinge, which is what lets it swing both ways and close by
+     * itself. See {@link #springLoaded()}.
      */
     SALOON("_saloon", true),
 
@@ -44,6 +44,20 @@ public enum DoorStyle {
     /** Whether this style exists once per material, or once in total. */
     public boolean perMaterial() {
         return perMaterial;
+    }
+
+    /**
+     * Whether the leaves hang on a double-acting spring hinge.
+     *
+     * <p>One mechanism, three consequences, which is why they are one flag and not three: the
+     * door swings both ways, it returns to its frame on its own, and it ignores redstone.
+     *
+     * <p>That last one is not a shortcut. A spring hinge has no latch -- there is no position it
+     * can be made to stay in. A signal saying "hold this open" and a spring saying "come back"
+     * would simply fight, and whichever won would make the other look broken.
+     */
+    public boolean springLoaded() {
+        return this == SALOON;
     }
 
     /** Whether a door of this style exists at the given width. */
@@ -72,5 +86,24 @@ public enum DoorStyle {
     public String modelStem(String material, boolean upper, String role) {
         String styled = this == GLAZED && !upper ? "" : infix;
         return material + styled + "_doorway_" + (upper ? "top" : "bottom") + "_" + role;
+    }
+
+    /**
+     * The model stem for one half of one column, in the frame or swung out of it.
+     *
+     * <p>Every style needs both, for the reason vanilla ships {@code door_bottom_left} and
+     * {@code door_bottom_left_open}: swinging turns the leaf the other way about its hinge,
+     * which reverses which end of the texture faces the frame. One model for both states puts
+     * the ironwork at the free end of the leaf as soon as it opens.
+     *
+     * <p>A spring door differs in the box as well as the UVs. It hangs centred in its frame,
+     * because that is what the shape looks like -- but a blockstate turns a model about the
+     * centre of its block rather than about the hinge, so a centred box rotated 90° stays
+     * centred and becomes a bar across the doorway, attached to nothing. Only the closed state
+     * can afford to be centred.
+     */
+    public String modelStem(String material, boolean upper, String role, boolean swung) {
+        String stem = modelStem(material, upper, role);
+        return swung ? stem + "_open" : stem;
     }
 }
