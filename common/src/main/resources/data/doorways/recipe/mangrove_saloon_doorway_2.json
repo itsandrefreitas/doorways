@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "L": "minecraft:mangrove_planks",
+    "H": "doorways:iron_hinge"
+  },
+  "pattern": [
+    "LL ",
+    "LLH",
+    "LL "
+  ],
+  "result": {
+    "count": 4,
+    "id": "doorways:mangrove_saloon_doorway_2"
+  }
+}

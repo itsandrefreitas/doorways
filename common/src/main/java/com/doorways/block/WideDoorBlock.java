@@ -125,7 +125,9 @@ public class WideDoorBlock extends Block {
 
     public WideDoorBlock(int width, DoorMode mode, BlockSetType type,
                          BlockBehaviour.Properties properties) {
-        super(properties.sound(type.soundType()));
+        // The sound is chosen by DoorVariant: BlockSetType still supplies the open and
+        // close sounds, but step, break and place follow the material.
+        super(properties);
         this.width = width;
         this.mode = mode;
         this.type = type;

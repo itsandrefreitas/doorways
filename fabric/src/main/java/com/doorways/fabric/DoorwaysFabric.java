@@ -1,6 +1,7 @@
 package com.doorways.fabric;
 
 import com.doorways.Doorways;
+import com.doorways.block.DoorStyle;
 import com.doorways.block.DoorVariant;
 import com.doorways.block.DoorwaysContent;
 import java.util.Map;
@@ -91,7 +92,7 @@ public final class DoorwaysFabric implements ModInitializer {
     }
 
     private static Block copper(String material, int width, boolean glass) {
-        return DoorVariant.find(material, width, glass)
+        return DoorVariant.find(material, width, glass ? DoorStyle.GLAZED : DoorStyle.SOLID)
                 .map(doors::get)
                 .map(Supplier::get)
                 .orElseThrow(() -> new IllegalStateException(

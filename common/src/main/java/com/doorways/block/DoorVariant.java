@@ -27,7 +27,7 @@ import org.jspecify.annotations.Nullable;
  * Fabric registers directly at start-up, NeoForge requires its own event. Each loader iterates
  * {@link #ALL} its own way.
  */
-public record DoorVariant(Material material, int width, DoorMode mode, boolean glazed) {
+public record DoorVariant(Material material, int width, DoorMode mode, DoorStyle style) {
 
     /**
      * A door's material.
@@ -37,15 +37,23 @@ public record DoorVariant(Material material, int width, DoorMode mode, boolean g
      * bamboo door sounds like bamboo with no extra code.
      */
     public record Material(String name, BlockSetType type, MapColor color,
-                           float strength, boolean flammable,
+                           float strength, boolean flammable, SoundType sound,
                            @Nullable WeatherState weathering) {}
 
     private static Material wood(String name, BlockSetType type, Block planks) {
-        return new Material(name, type, planks.defaultMapColor(), 3.0F, true, null);
+        return new Material(name, type, planks.defaultMapColor(), 3.0F, true,
+                type.soundType(), null);
+    }
+
+    /** Nether woods do not burn. */
+    private static Material netherWood(String name, BlockSetType type, Block planks) {
+        return new Material(name, type, planks.defaultMapColor(), 3.0F, false,
+                type.soundType(), null);
     }
 
     private static Material metal(String name, BlockSetType type, Block block) {
-        return new Material(name, type, block.defaultMapColor(), 5.0F, false, null);
+        return new Material(name, type, block.defaultMapColor(), 5.0F, false,
+                type.soundType(), null);
     }
 
     /**
@@ -54,10 +62,9 @@ public record DoorVariant(Material material, int width, DoorMode mode, boolean g
      * <p>A non-null {@code weathering} means the door ticks the clock. Waxed ones pass
      * {@code null}: they keep their stage's appearance but stop changing, which is what wax does.
      */
-    private static Material copper(String name, Block sample,
-                                   @Nullable WeatherState weathering) {
+    private static Material copper(String name, Block sample, @Nullable WeatherState weathering) {
         return new Material(name, BlockSetType.COPPER, sample.defaultMapColor(), 5.0F, false,
-                weathering);
+                BlockSetType.COPPER.soundType(), weathering);
     }
 
     private static List<Material> copperStates() {
@@ -74,7 +81,8 @@ public record DoorVariant(Material material, int width, DoorMode mode, boolean g
                 copper("waxed_oxidized_copper", waxed.oxidized(), null));
     }
 
-    private static final List<Material> WOODS = List.of(
+    /** The twelve woods, bamboo and the two Nether ones included. */
+    public static final List<Material> WOODS = List.of(
             wood("oak", BlockSetType.OAK, Blocks.OAK_PLANKS),
             wood("spruce", BlockSetType.SPRUCE, Blocks.SPRUCE_PLANKS),
             wood("birch", BlockSetType.BIRCH, Blocks.BIRCH_PLANKS),
@@ -85,46 +93,78 @@ public record DoorVariant(Material material, int width, DoorMode mode, boolean g
             wood("cherry", BlockSetType.CHERRY, Blocks.CHERRY_PLANKS),
             wood("pale_oak", BlockSetType.PALE_OAK, Blocks.PALE_OAK_PLANKS),
             wood("bamboo", BlockSetType.BAMBOO, Blocks.BAMBOO_PLANKS),
-            // Nether woods do not burn.
-            new Material("crimson", BlockSetType.CRIMSON,
-                    Blocks.CRIMSON_PLANKS.defaultMapColor(), 3.0F, false, null),
-            new Material("warped", BlockSetType.WARPED,
-                    Blocks.WARPED_PLANKS.defaultMapColor(), 3.0F, false, null),
-            metal("iron", BlockSetType.IRON, Blocks.IRON_BLOCK));
+            netherWood("crimson", BlockSetType.CRIMSON, Blocks.CRIMSON_PLANKS),
+            netherWood("warped", BlockSetType.WARPED, Blocks.WARPED_PLANKS));
 
-    /** Woods and iron, plus the eight copper states. */
-    public static final List<Material> MATERIALS = concat(WOODS, copperStates());
+    private static final Material IRON = metal("iron", BlockSetType.IRON, Blocks.IRON_BLOCK);
 
-    private static List<Material> concat(List<Material> a, List<Material> b) {
-        List<Material> all = new ArrayList<>(a);
-        all.addAll(b);
+    /**
+     * Glass throughout, in an iron frame.
+     *
+     * <p>Strength follows the wooden doors rather than vanilla glass. A door at glass's 0.3
+     * would break in a single punch, which makes it useless as a door -- and this is a door
+     * before it is glass.
+     */
+    private static final Material GLASS = new Material("glass", BlockSetType.OAK,
+            Blocks.GLASS.defaultMapColor(), 3.0F, false, SoundType.GLASS, null);
+
+    private static final Material BOOKSHELF = new Material("bookshelf", BlockSetType.OAK,
+            Blocks.BOOKSHELF.defaultMapColor(), 1.5F, true, SoundType.WOOD, null);
+
+    /** Every material a door can be made of, in registration order. */
+    public static final List<Material> MATERIALS = buildMaterials();
+
+    private static List<Material> buildMaterials() {
+        List<Material> all = new ArrayList<>(WOODS);
+        all.add(IRON);
+        all.addAll(copperStates());
+        all.add(GLASS);
+        all.add(BOOKSHELF);
         return List.copyOf(all);
+    }
+
+    /** The materials a given style is available in. */
+    private static List<Material> materialsFor(DoorStyle style) {
+        return switch (style) {
+            case SOLID, GLAZED -> {
+                List<Material> all = new ArrayList<>(WOODS);
+                all.add(IRON);
+                all.addAll(copperStates());
+                yield List.copyOf(all);
+            }
+            // Neither iron nor copper: a saloon door is a wooden thing.
+            case SALOON -> WOODS;
+            case FULL_GLASS -> List.of(GLASS);
+            case BOOKSHELF -> List.of(BOOKSHELF);
+        };
     }
 
     public static final List<DoorVariant> ALL = buildAll();
 
     private static List<DoorVariant> buildAll() {
         List<DoorVariant> all = new ArrayList<>();
-        for (Material material : MATERIALS) {
-            for (int width = DoorLayout.MIN_WIDTH; width <= DoorLayout.MAX_WIDTH; width++) {
-                for (boolean glazed : new boolean[] {false, true}) {
-                    all.add(new DoorVariant(material, width, DoorMode.defaultFor(width), glazed));
+        for (DoorStyle style : DoorStyle.values()) {
+            for (Material material : materialsFor(style)) {
+                for (int width = DoorLayout.MIN_WIDTH; width <= DoorLayout.MAX_WIDTH; width++) {
+                    if (style.allowsWidth(width)) {
+                        all.add(new DoorVariant(material, width, DoorMode.defaultFor(width), style));
+                    }
                 }
             }
         }
         return List.copyOf(all);
     }
 
-    /** Finds a variant by material name. */
-    public static Optional<DoorVariant> find(String material, int width, boolean glazed) {
+    /** Finds a variant by material name, width and style. */
+    public static Optional<DoorVariant> find(String material, int width, DoorStyle style) {
         return ALL.stream()
                 .filter(v -> v.material.name().equals(material)
-                        && v.width == width && v.glazed == glazed)
+                        && v.width == width && v.style == style)
                 .findFirst();
     }
 
     public String name() {
-        return material.name() + (glazed ? "_glass_doorway_" : "_doorway_") + width;
+        return style.name(material.name(), width);
     }
 
     public Identifier id(String modId) {
@@ -152,13 +192,11 @@ public record DoorVariant(Material material, int width, DoorMode mode, boolean g
                 .strength(material.strength())
                 .noOcclusion()
                 .pushReaction(PushReaction.DESTROY)
+                .sound(style == DoorStyle.GLAZED ? SoundType.GLASS : material.sound())
                 .setId(blockKey(modId));
 
         if (material.flammable()) {
             properties = properties.ignitedByLava();
-        }
-        if (glazed) {
-            properties = properties.sound(SoundType.GLASS);
         }
         if (material.weathering() != null) {
             return new WeatheringWideDoorBlock(width, mode, material.type(),

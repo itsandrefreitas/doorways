@@ -1,6 +1,7 @@
 package com.doorways.test;
 
 import com.doorways.Doorways;
+import com.doorways.block.DoorStyle;
 import com.doorways.block.DoorVariant;
 import com.doorways.block.WideDoorBlock;
 import com.doorways.block.WideDoorGeometry;
@@ -194,7 +195,7 @@ public final class DoorwayScenarios {
 
     /** Looks up the registered door for this material and width. */
     private static Block door(String material, int width) {
-        DoorVariant variant = DoorVariant.find(material, width, false)
+        DoorVariant variant = DoorVariant.find(material, width, DoorStyle.SOLID)
                 .orElseThrow(() -> new IllegalStateException(
                         "no such variant: " + material + " " + width));
         Block block = BuiltInRegistries.BLOCK.getValue(variant.blockKey(Doorways.MOD_ID));

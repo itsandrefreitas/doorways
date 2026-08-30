@@ -131,10 +131,8 @@ public class DoorwayBlockStateProvider extends FabricModelProvider {
                 : column == 0 ? "left"
                 : column == width - 1 ? "right"
                 : "mid";
-        boolean upper = half == DoubleBlockHalf.UPPER;
-        String glass = variant.glazed() && upper ? "_glass" : "";
-        return Identifier.fromNamespaceAndPath(Doorways.MOD_ID,
-                "block/" + variant.material().name() + glass + "_doorway_"
-                        + (upper ? "top" : "bottom") + "_" + role);
+        return Identifier.fromNamespaceAndPath(Doorways.MOD_ID, "block/"
+                + variant.style().modelStem(variant.material().name(),
+                        half == DoubleBlockHalf.UPPER, role));
     }
 }

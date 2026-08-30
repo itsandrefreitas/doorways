@@ -16,9 +16,9 @@ import zipfile
 import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from materials import (MATERIALS, block_name, display_name, oxidation_chain,
-                       waxable_pairs)
-from palettes import palette_from
+from materials import (MATERIALS, STYLES, block_name, display_name, model_stem,
+                       oxidation_chain, waxable_pairs)
+from palettes import palette_from, read_png
 
 MOD = "doorways"
 HINGE = "iron_hinge"
@@ -123,6 +123,95 @@ def window(px, pal, role):
             px[y][13] = pal["GROOVE"]
 
 
+# A saloon leaf hangs clear of both floor and lintel. The lower half stops at row 11, which
+# leaves the sill about a third of a block off the ground.
+SALOON_SILL = 11
+
+# The arch peaks at row 2 in the middle of a column and falls to row 6 at its edges.
+SALOON_CROWN = 2
+SALOON_SPRING = 6
+
+
+def saloon_head(x):
+    """The row the panel top reaches, across one column.
+
+    The arch is symmetric: it peaks at the middle and falls at both edges, so a leaf reads the
+    same from either side. An arch that only rose toward one end looked straight from the
+    opposite one, which is what the shape is supposed to avoid.
+    """
+    half_width = (W - 1) / 2
+    t = abs(x - half_width) / half_width
+    return SALOON_CROWN + round((SALOON_SPRING - SALOON_CROWN) * t ** 1.6)
+
+
+def saloon_extent(half, x):
+    """First and last panel row at this column position."""
+    return (0, SALOON_SILL - 1) if half == "bottom" else (saloon_head(x), H - 1)
+
+
+def saloon_leaf(pal, half, role):
+    """Spindles under an arched rail on top, a solid panel below -- the western pattern.
+
+    The gaps between the spindles are left transparent. A saloon door is something you see
+    through, and the texture is the only place that can say so.
+    """
+    px = blank()
+    for x in range(W):
+        head, foot = saloon_extent(half, x)
+        stile = x < 2 or x > W - 3
+
+        for y in range(head, foot + 1):
+            if stile:
+                px[y][x] = pal["WOOD_LO"]
+            elif half == "bottom":
+                px[y][x] = pal["WOOD"]
+            elif y <= head + 1 or y >= foot - 2:
+                px[y][x] = pal["WOOD"]            # the rails that hold the spindles
+            elif x % 3 == 2:
+                px[y][x] = NONE                   # daylight between the spindles
+            else:
+                px[y][x] = pal["WOOD_HI"]
+
+        px[head][x] = pal["WOOD_HI"]
+        px[foot][x] = pal["WOOD_LO"]
+
+    if half == "bottom":
+        # A raised field inside the frame, as on a panelled door.
+        for y in range(3, SALOON_SILL - 3):
+            for x in range(3, W - 3):
+                px[y][x] = pal["WOOD_HI"] if (x + y) % 9 else pal["WOOD"]
+        for x in range(3, W - 3):
+            px[3][x] = pal["GROOVE"]
+            px[SALOON_SILL - 4][x] = pal["GROOVE"]
+        for y in range(3, SALOON_SILL - 3):
+            px[y][3] = pal["GROOVE"]
+            px[y][W - 4] = pal["GROOVE"]
+
+    if role in ("left", "single"):
+        saloon_strap(px, "left", half)
+    if role in ("right", "single"):
+        saloon_strap(px, "right", half)
+    return px
+
+
+def saloon_strap(px, side, half):
+    """Ironwork on the hinge edge, following the arch rather than the block."""
+    for x in ((0, 1) if side == "left" else (W - 2, W - 1)):
+        head, foot = saloon_extent(half, x)
+        for y in range(head, foot + 1):
+            px[y][x] = IRON_HI if y % 5 == 0 else (IRON if x in (1, W - 2) else IRON_LO)
+
+
+def bookshelf_leaf(vanilla, role):
+    """The vanilla bookshelf texture, unchanged.
+
+    Redrawing the spines was the wrong idea: side by side with a real bookshelf the difference
+    was obvious, and the point of this door is to match the block. Stacking the same texture on
+    both halves is exactly what a wall of bookshelves looks like.
+    """
+    return [row[:] for row in vanilla]
+
+
 def door_texture(pal, half, role, glass):
     px = blank()
     planks(px, pal)
@@ -141,22 +230,56 @@ def door_texture(pal, half, role, glass):
     return px
 
 
-def item_texture(pal, width, glass):
+def glass_leaf(half, role):
+    """A pane in an iron frame, top to bottom."""
+    px = blank()
+    for y in range(H):
+        for x in range(W):
+            px[y][x] = GLASS
+    for y in range(2, 14):
+        for x in range(1, 15):
+            if (x + y) % 7 == 0:
+                px[y][x] = GLASS_HI
+
+    if half == "bottom":
+        band(px, 13, 15)
+        band(px, 0, 1)
+    else:
+        band(px, 0, 2)
+        band(px, 14, 15)
+    if role in ("left", "single"):
+        strap(px, "left")
+    if role in ("right", "single"):
+        strap(px, "right")
+    return px
+
+
+def item_texture(pal, vanilla, width, style):
+    """The inventory sprite: a small elevation of the door, in its own style."""
     px = blank()
     total = min(width * 3 + 1, 13)
     x0 = (W - total) // 2
-    for y in range(2, 15):
+    # A saloon door is drawn shorter, so it reads as itself in a full hotbar.
+    y0, y1 = (5, 12) if style == "saloon" else (2, 14)
+
+    for y in range(y0, y1 + 1):
         for x in range(x0, x0 + total):
-            if x in (x0, x0 + total - 1) or y in (2, 14):
+            if x in (x0, x0 + total - 1) or y in (y0, y1):
                 px[y][x] = IRON_LO
-            elif glass and 4 <= y <= 7:
+            elif style == "full_glass":
+                px[y][x] = GLASS_HI if (x + y) % 3 else GLASS
+            elif style == "bookshelf":
+                px[y][x] = vanilla[y % H][x % W]
+            elif style == "glazed" and 4 <= y <= 7:
                 px[y][x] = GLASS_HI
             elif (x - x0) % 3 == 0:
                 px[y][x] = pal["GROOVE"]
             else:
                 px[y][x] = pal["WOOD"] if y > 8 else pal["WOOD_HI"]
+
+    middle = (y0 + y1) // 2
     for x in range(x0, x0 + total):
-        px[8][x] = IRON
+        px[middle][x] = IRON
     return px
 
 
@@ -180,6 +303,17 @@ def hinge_texture():
 # belongs in datagen, pixels belong here.
 
 
+def leaf_texture(pal, vanilla, half, role, style):
+    """The texture for one half of one column, in whichever style."""
+    if style == "full_glass":
+        return glass_leaf(half, role)
+    if style == "saloon":
+        return saloon_leaf(pal, half, role)
+    if style == "bookshelf":
+        return bookshelf_leaf(vanilla, role)
+    return door_texture(pal, half, role, style == "glazed" and half == "top")
+
+
 def leaf_model(face_tex):
     """Geometry copied from vanilla door_bottom_left: a 3/16 slice on the X axis, with the
     wide faces to west/east."""
@@ -200,35 +334,112 @@ def leaf_model(face_tex):
     }
 
 
+def leaf_box(z0, z1, y0, y1, faces):
+    """One box of a leaf, with the UV conventions taken from the vanilla door template.
+
+    The texture's 16-wide axis runs along z, and v counts down from the top of the block, so a
+    box between y0 and y1 shows texture rows 16-y1 to 16-y0. For a full-height box these
+    formulas reproduce block/door_bottom_left exactly.
+    """
+    v0, v1 = H - y1, H - y0
+    out = {}
+    if "west" in faces:
+        out["west"] = {"texture": "#face", "uv": [z0, v0, z1, v1]}
+    if "east" in faces:
+        out["east"] = {"texture": "#face", "uv": [z1, v0, z0, v1]}
+    if "north" in faces:
+        out["north"] = {"texture": "#face", "uv": [3, v0, 0, v1]}
+    if "south" in faces:
+        out["south"] = {"texture": "#face", "uv": [0, v0, 3, v1]}
+    if "up" in faces:
+        out["up"] = {"texture": "#face", "uv": [z0, v0 + 3, z1, v0], "rotation": 90}
+    if "down" in faces:
+        out["down"] = {"texture": "#face", "uv": [z1, v1 - 3, z0, v1], "rotation": 90}
+    return {"from": [0, y0, z0], "to": [3, y1, z1], "faces": out}
+
+
+def saloon_leaf_model(face_tex, half):
+    """A leaf cut to the panel, with the arch built as steps.
+
+    A box has a flat top, so a single one cannot follow an arch: set it at the highest point and
+    a bar hangs over the low parts, set it at the lowest and the arch is clipped. Dropping the
+    top face hides the bar but leaves the door invisible from above.
+
+    So the arch is stacked instead: a base box up to the lowest point of the arch, then one
+    layer per step above it. Each layer is shorter along z than the one below, which is what
+    keeps their vertical faces from landing on top of each other and flickering.
+
+    Top and bottom halves meet at y=16/y=0, so neither draws a face there -- the same reason
+    the vanilla door template omits them.
+    """
+    sides = ("north", "south", "west", "east")
+
+    if half == "bottom":
+        elements = [leaf_box(0, W, H - SALOON_SILL, H, sides + ("down",))]
+    else:
+        heads = [saloon_head(x) for x in range(W)]
+        lowest = max(heads)
+        elements = [leaf_box(0, W, 0, H - lowest, sides + ("up",))]
+
+        previous = lowest
+        for head in sorted({h for h in heads if h < lowest}, reverse=True):
+            covered = [x for x in range(W) if heads[x] <= head]
+            elements.append(leaf_box(min(covered), max(covered) + 1,
+                                     H - previous, H - head, sides + ("up",)))
+            previous = head
+
+    return {
+        "ambientocclusion": False,
+        "textures": {"particle": face_tex, "face": face_tex},
+        "elements": elements,
+    }
+
+
 # ---------------------------------------------------------------- writing
 def main():
     jar = zipfile.ZipFile(CLIENT_JAR)
     lang = {"itemGroup.doorways": "Doorways", f"item.{MOD}.{HINGE}": "Iron Hinge"}
     n = 0
 
+    palettes, faces = {}, {}
     for material, label, texture, craft in MATERIALS:
-        pal = palette_from(jar.read(f"assets/minecraft/textures/block/{texture}.png"))
+        data = jar.read(f"assets/minecraft/textures/block/{texture}.png")
+        palettes[material] = palette_from(data)
+        # Kept whole for the styles that copy the vanilla face rather than redraw it.
+        _, _, flat = read_png(data)
+        faces[material] = [flat[row * W:(row + 1) * W] for row in range(H)]
 
-        # leaf textures and models
-        for half in ("bottom", "top"):
-            for role in ("single", "left", "mid", "right"):
-                for glass in ((False,) if half == "bottom" else (False, True)):
-                    stem = f"{material}_{'glass_' if glass else ''}doorway_{half}_{role}"
+    # A glazed door's lower half is the solid model, so the same stem comes up twice. Written
+    # once, on whichever style reaches it first.
+    written = set()
+
+    for style, (materials, widths) in STYLES.items():
+        for material, label, texture, craft in materials:
+            pal = palettes[material]
+            vanilla = faces[material]
+
+            for half in ("bottom", "top"):
+                for role in ("single", "left", "mid", "right"):
+                    stem = model_stem(material, style, half, role)
+                    if stem in written:
+                        continue
+                    written.add(stem)
                     write_png(os.path.join(ASSETS, "textures", "block", stem + ".png"),
-                              door_texture(pal, half, role, glass))
-                    write_json(os.path.join(ASSETS, "models", "block", stem + ".json"),
-                               leaf_model(f"{MOD}:block/{stem}"))
+                              leaf_texture(pal, vanilla, half, role, style))
+                    face = f"{MOD}:block/{stem}"
+                    model = (saloon_leaf_model(face, half) if style == "saloon"
+                             else leaf_model(face))
+                    write_json(os.path.join(ASSETS, "models", "block", stem + ".json"), model)
                     n += 2
 
-        for width in (1, 2, 3, 4):
-            for glass in (False, True):
-                block = block_name(material, width, glass)
-                lang[f"block.{MOD}.{block}"] = display_name(label, width, glass)
+            for width in widths:
+                block = block_name(material, width, style)
+                lang[f"block.{MOD}.{block}"] = display_name(label, width, style)
 
                 # Blockstates and item definitions come from datagen, not from here:
                 # they derive from geometry. See DECISIONS.md, D-34.
                 write_png(os.path.join(ASSETS, "textures", "item", block + ".png"),
-                          item_texture(pal, width, glass))
+                          item_texture(pal, vanilla, width, style))
                 write_json(os.path.join(ASSETS, "models", "item", block + ".json"),
                            {"parent": "item/generated",
                             "textures": {"layer0": f"{MOD}:item/{block}"}})
@@ -236,7 +447,7 @@ def main():
                            loot_table(block))
                 n += 3
 
-        n += write_recipes(material, craft)
+            n += write_recipes(material, craft, style, widths)
 
     # the hinge item
     write_png(os.path.join(ASSETS, "textures", "item", HINGE + ".png"), hinge_texture())
@@ -254,8 +465,8 @@ def main():
     # Waxing at the bench, as well as honeycomb in hand -- vanilla offers both routes.
     for bare, waxed in waxable_pairs():
         for width in (1, 2, 3, 4):
-            for glass in (False, True):
-                src, dst = block_name(bare, width, glass), block_name(waxed, width, glass)
+            for style in ("solid", "glazed"):
+                src, dst = block_name(bare, width, style), block_name(waxed, width, style)
                 write_json(os.path.join(DATA, "recipe", dst + "_from_honeycomb.json"), {
                     "type": "minecraft:crafting_shapeless",
                     "category": "building",
@@ -269,7 +480,8 @@ def main():
     write_json(os.path.join(ASSETS, "lang", "en_us.json"), dict(sorted(lang.items())))
     n += 5
 
-    print(f"{n} files, {len(MATERIALS)} materials, {len(MATERIALS) * 8} doors")
+    doors = sum(len(m) * len(w) for m, w in STYLES.values())
+    print(f"{n} files, {len(MATERIALS)} materials, {len(STYLES)} styles, {doors} doors")
 
 
 def loot_table(block):
@@ -311,14 +523,14 @@ def write_neoforge_data_maps():
     oxidizables, waxables = {}, {}
 
     for width in (1, 2, 3, 4):
-        for glass in (False, True):
+        for style in ("solid", "glazed"):
             for i in range(len(chain) - 1):
-                oxidizables[f"{MOD}:{block_name(chain[i], width, glass)}"] = {
-                    "next_oxidation_stage": f"{MOD}:{block_name(chain[i + 1], width, glass)}"
+                oxidizables[f"{MOD}:{block_name(chain[i], width, style)}"] = {
+                    "next_oxidation_stage": f"{MOD}:{block_name(chain[i + 1], width, style)}"
                 }
             for bare, waxed in waxable_pairs():
-                waxables[f"{MOD}:{block_name(bare, width, glass)}"] = {
-                    "waxed": f"{MOD}:{block_name(waxed, width, glass)}"
+                waxables[f"{MOD}:{block_name(bare, width, style)}"] = {
+                    "waxed": f"{MOD}:{block_name(waxed, width, style)}"
                 }
 
     write_json(os.path.join(root, "oxidizables.json"), {"values": oxidizables})
@@ -326,7 +538,26 @@ def write_neoforge_data_maps():
     return 2
 
 
-def write_recipes(material, craft):
+# How each set of widths is built up from the smallest one. The 4-wide recipe mirrors the
+# mechanism: §2.3 defines it as two rigid leaves of half the width.
+LADDER = {
+    (1, 2, 3, 4): ((2, 1, ["DD"]), (3, 1, ["DDD"]), (4, 2, ["DD"])),
+    (2, 4): ((4, 2, ["DD"]),),
+}
+
+
+def body_ingredient(material, craft, style):
+    """What the door body is made of.
+
+    Saloon doors take planks rather than whole logs: they are light, slatted things, and it
+    keeps their recipe clear of the solid door's.
+    """
+    if style == "saloon":
+        return f"minecraft:{material}_planks"
+    return craft
+
+
+def write_recipes(material, craft, style, widths):
     n = 0
 
     def recipe(name, body):
@@ -334,54 +565,56 @@ def write_recipes(material, craft):
         write_json(os.path.join(DATA, "recipe", name + ".json"), body)
         n += 1
 
-    one = block_name(material, 1, False)
-    two = block_name(material, 2, False)
+    def named(width):
+        return block_name(material, width, style)
 
-    # The door body, four at a time. With the ladder (w4 = 4 x w1) this makes a 4-wide door
-    # cost exactly one batch. Copper's oxidised and waxed states are not crafted from scratch:
-    # they come from time or from honeycomb.
-    if craft is not None:
-      recipe(one, {
-        "type": "minecraft:crafting_shaped",
-        "category": "building",
-        "key": {"L": craft, "H": f"{MOD}:{HINGE}"},
-        "pattern": ["LL ", "LLH", "LL "],
-        "result": {"count": 4, "id": f"{MOD}:{one}"},
-      })
+    if style == "glazed":
+        # Glazing upgrades the solid door of the same width, with as many glass blocks as the
+        # door is wide. The door may sit anywhere in the row -- a shaped recipe has no "any
+        # position", so it is one recipe per position, grouped in the book.
+        panes = {
+            1: [["G", "D"]],
+            2: [["GG", "D "], ["GG", " D"]],
+            3: [["GGG", "D  "], ["GGG", " D "], ["GGG", "  D"]],
+            4: [[" G ", "GDG", " G "]],
+        }
+        for width in widths:
+            name = named(width)
+            for slot, pattern in enumerate(panes[width]):
+                recipe(name if slot == 0 else f"{name}_{slot}", {
+                    "type": "minecraft:crafting_shaped",
+                    "category": "building",
+                    "group": name,
+                    "key": {"D": f"{MOD}:{block_name(material, width, 'solid')}",
+                            "G": "minecraft:glass"},
+                    "pattern": pattern,
+                    "result": {"count": 1, "id": f"{MOD}:{name}"},
+                })
+        return n
 
-    # The ladder: 2 and 3 from singles, 4 from two doubles. The 4-wide recipe mirrors the
-    # mechanism -- §2.3 defines it as two 2-wide leaves.
-    for width, part, pattern in ((2, one, ["DD"]), (3, one, ["DDD"]), (4, two, ["DD"])):
-        name = block_name(material, width, False)
-        recipe(name, {
+    ingredient = body_ingredient(material, craft, style)
+    base = widths[0]
+
+    # The door body, four at a time. With the ladder this makes the widest door cost exactly
+    # one batch. Oxidised and waxed copper have no body recipe -- they come from time or from
+    # honeycomb -- but two narrow ones can still be joined into a wide one.
+    if ingredient is not None:
+        recipe(named(base), {
             "type": "minecraft:crafting_shaped",
             "category": "building",
-            "key": {"D": f"{MOD}:{part}"},
-            "pattern": pattern,
-            "result": {"count": 1, "id": f"{MOD}:{name}"},
+            "key": {"L": ingredient, "H": f"{MOD}:{HINGE}"},
+            "pattern": ["LL ", "LLH", "LL "],
+            "result": {"count": 4, "id": f"{MOD}:{named(base)}"},
         })
 
-    # Glazing: an upgrade of the solid door of the same width, with as many glass blocks as
-    # the door is wide. The door may sit at any position in the row -- the game has no "any
-    # position" in a shaped recipe, so it is one recipe per position, grouped in the book.
-    panes = {
-        1: [["G", "D"]],
-        2: [["GG", "D "], ["GG", " D"]],
-        3: [["GGG", "D  "], ["GGG", " D "], ["GGG", "  D"]],
-        4: [[" G ", "GDG", " G "]],
-    }
-    for width, patterns in panes.items():
-        name = block_name(material, width, True)
-        for slot, pattern in enumerate(patterns):
-            recipe(name if slot == 0 else f"{name}_{slot}", {
-                "type": "minecraft:crafting_shaped",
-                "category": "building",
-                "group": name,
-                "key": {"D": f"{MOD}:{block_name(material, width, False)}",
-                        "G": "minecraft:glass"},
-                "pattern": pattern,
-                "result": {"count": 1, "id": f"{MOD}:{name}"},
-            })
+    for width, part, pattern in LADDER[tuple(widths)]:
+        recipe(named(width), {
+            "type": "minecraft:crafting_shaped",
+            "category": "building",
+            "key": {"D": f"{MOD}:{named(part)}"},
+            "pattern": pattern,
+            "result": {"count": 1, "id": f"{MOD}:{named(width)}"},
+        })
     return n
 
 

@@ -1,4 +1,4 @@
-"""The v0.1 materials.
+"""The materials and styles a door can be made in.
 
 `texture` is the vanilla texture the palette is sampled from -- the colours are not invented,
 they are taken from the material itself (see palettes.py). `craft` is the ingredient for the
@@ -8,6 +8,9 @@ through oxidation or waxing.
 
 Copper enters as 8 materials -- 4 oxidation stages x waxed/unwaxed -- because in Minecraft each
 state is a distinct block. The waxed ones share their counterpart's texture.
+
+The style table mirrors DoorStyle.java. The two have to agree on which combinations exist and
+on how names are built, or a door ends up pointing at a texture that was never written.
 """
 
 COPPER_STATES = [
@@ -28,7 +31,7 @@ def _copper():
     return out
 
 
-MATERIALS = [
+WOODS = [
     # id            name            vanilla texture      body ingredient
     ("oak",        "Oak",         "oak_planks",        "minecraft:oak_log"),
     ("spruce",     "Spruce",      "spruce_planks",     "minecraft:spruce_log"),
@@ -42,19 +45,69 @@ MATERIALS = [
     ("bamboo",     "Bamboo",      "bamboo_planks",     "minecraft:bamboo_block"),
     ("crimson",    "Crimson",     "crimson_planks",    "minecraft:crimson_stem"),
     ("warped",     "Warped",      "warped_planks",     "minecraft:warped_stem"),
-    ("iron",       "Iron",        "iron_block",        "minecraft:iron_ingot"),
-] + _copper()
+]
+
+IRON = ("iron", "Iron", "iron_block", "minecraft:iron_ingot")
+COPPER = _copper()
+
+# Styles with no material to vary. The palette still comes from a vanilla texture: the glass
+# frame borrows glass's own pale tone, the bookshelf its planks and book spines.
+#
+# The glass door is built from glass blocks rather than panes. Six panes are two blocks' worth,
+# which would make it the cheapest door in the mod by a wide margin.
+GLASS = ("glass", "Glass", "glass", "minecraft:glass")
+BOOKSHELF = ("bookshelf", "Bookshelf", "bookshelf", "minecraft:bookshelf")
+
+MATERIALS = WOODS + [IRON] + COPPER + [GLASS, BOOKSHELF]
+
+# style -> (materials, widths). Mirrors DoorStyle.materialsFor and DoorStyle.allowsWidth.
+STYLES = {
+    "solid":      (WOODS + [IRON] + COPPER, (1, 2, 3, 4)),
+    "glazed":     (WOODS + [IRON] + COPPER, (1, 2, 3, 4)),
+    "full_glass": ([GLASS], (1, 2, 3, 4)),
+    # A saloon door is two swinging leaves, so it only exists at the even widths. No iron and
+    # no copper: it is a wooden thing.
+    "saloon":     (WOODS, (2, 4)),
+    "bookshelf":  ([BOOKSHELF], (1, 2, 3, 4)),
+}
+
+STYLE_INFIX = {
+    "solid": "",
+    "glazed": "_glass",
+    "full_glass": "",
+    "saloon": "_saloon",
+    "bookshelf": "",
+}
+
+STYLE_LABEL = {
+    "solid": "",
+    "glazed": " Glass",
+    "full_glass": "",
+    "saloon": " Saloon",
+    "bookshelf": "",
+}
 
 WIDTH_SUFFIX = {1: "", 2: " ×2", 3: " ×3", 4: " ×4"}
 
 
-def block_name(material, width, glass):
+def block_name(material, width, style):
     """State prefixes go in front, as in vanilla: waxed_exposed_copper_doorway_2."""
-    return f"{material}_{'glass_' if glass else ''}doorway_{width}"
+    return f"{material}{STYLE_INFIX[style]}_doorway_{width}"
 
 
-def display_name(label, width, glass):
-    return f"{label}{' Glass' if glass else ''} Doorway{WIDTH_SUFFIX[width]}"
+def model_stem(material, style, half, role):
+    """The model and texture stem for one half of one column.
+
+    Glazed doors are the exception: only the upper half differs from a solid door, so the lower
+    half reuses the solid texture instead of duplicating it per material.
+    """
+    upper = half == "top"
+    infix = "" if (style == "glazed" and not upper) else STYLE_INFIX[style]
+    return f"{material}{infix}_doorway_{half}_{role}"
+
+
+def display_name(label, width, style):
+    return f"{label}{STYLE_LABEL[style]} Doorway{WIDTH_SUFFIX[width]}"
 
 
 def waxable_pairs():

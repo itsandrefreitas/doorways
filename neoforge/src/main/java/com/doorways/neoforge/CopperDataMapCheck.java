@@ -1,6 +1,7 @@
 package com.doorways.neoforge;
 
 import com.doorways.Doorways;
+import com.doorways.block.DoorStyle;
 import com.doorways.block.DoorVariant;
 import java.util.ArrayList;
 import java.util.List;
@@ -82,7 +83,8 @@ public final class CopperDataMapCheck {
     }
 
     private static Block door(String material, int width, boolean glass) {
-        DoorVariant variant = DoorVariant.find(material, width, glass)
+        DoorStyle style = glass ? DoorStyle.GLAZED : DoorStyle.SOLID;
+        DoorVariant variant = DoorVariant.find(material, width, style)
                 .orElseThrow(() -> new IllegalStateException(
                         "no such variant: " + material + " " + width + " glass=" + glass));
         return BuiltInRegistries.BLOCK.getValue(variant.blockKey(Doorways.MOD_ID));

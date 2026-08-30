@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "D": "doorways:birch_saloon_doorway_2"
+  },
+  "pattern": [
+    "DD"
+  ],
+  "result": {
+    "count": 1,
+    "id": "doorways:birch_saloon_doorway_4"
+  }
+}
