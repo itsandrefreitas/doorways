@@ -1,0 +1,23 @@
+// Code that touches Minecraft's vanilla API, shared by both loaders.
+//
+// It uses Loom only to get Minecraft on the classpath. It depends on neither Fabric Loader nor
+// NeoForge -- only on vanilla. The `fabric` and `neoforge` modules include these *sources*
+// directly (see their respective build.gradle).
+//
+// No mappings: Minecraft stopped being obfuscated in 26.1, so the real names are already the
+// official ones and there is no remapping anywhere. The plugin is `net.fabricmc.fabric-loom`
+// (not `-remap`, which is for 1.21.11 and earlier).
+//
+// This module produces no distributable jar; it compiles to validate and to support the IDE.
+
+plugins {
+    id 'net.fabricmc.fabric-loom'
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+
+    // Pure geometry. Compile classpath only: :core's sources are included directly in the
+    // loader modules, so they do not end up in the jar twice.
+    compileOnly project(':core')
+}

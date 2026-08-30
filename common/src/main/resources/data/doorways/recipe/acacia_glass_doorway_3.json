@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "group": "acacia_glass_doorway_3",
+  "key": {
+    "D": "doorways:acacia_doorway_3",
+    "G": "minecraft:glass"
+  },
+  "pattern": [
+    "GGG",
+    "D  "
+  ],
+  "result": {
+    "count": 1,
+    "id": "doorways:acacia_glass_doorway_3"
+  }
+}

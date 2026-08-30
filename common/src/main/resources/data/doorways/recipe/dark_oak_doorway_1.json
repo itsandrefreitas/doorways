@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "L": "minecraft:dark_oak_log",
+    "H": "doorways:iron_hinge"
+  },
+  "pattern": [
+    "LL ",
+    "LLH",
+    "LL "
+  ],
+  "result": {
+    "count": 4,
+    "id": "doorways:dark_oak_doorway_1"
+  }
+}

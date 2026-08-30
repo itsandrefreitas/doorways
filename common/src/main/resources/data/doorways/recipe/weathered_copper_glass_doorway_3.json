@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "group": "weathered_copper_glass_doorway_3",
+  "key": {
+    "D": "doorways:weathered_copper_doorway_3",
+    "G": "minecraft:glass"
+  },
+  "pattern": [
+    "GGG",
+    "D  "
+  ],
+  "result": {
+    "count": 1,
+    "id": "doorways:weathered_copper_glass_doorway_3"
+  }
+}

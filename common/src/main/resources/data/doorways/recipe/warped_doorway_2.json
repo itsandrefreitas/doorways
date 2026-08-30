@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "D": "doorways:warped_doorway_1"
+  },
+  "pattern": [
+    "DD"
+  ],
+  "result": {
+    "count": 1,
+    "id": "doorways:warped_doorway_2"
+  }
+}

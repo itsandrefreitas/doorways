@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "group": "exposed_copper_glass_doorway_2",
+  "key": {
+    "D": "doorways:exposed_copper_doorway_2",
+    "G": "minecraft:glass"
+  },
+  "pattern": [
+    "GG",
+    "D "
+  ],
+  "result": {
+    "count": 1,
+    "id": "doorways:exposed_copper_glass_doorway_2"
+  }
+}

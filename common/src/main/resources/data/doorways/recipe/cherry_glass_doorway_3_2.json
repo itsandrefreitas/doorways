@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "group": "cherry_glass_doorway_3",
+  "key": {
+    "D": "doorways:cherry_doorway_3",
+    "G": "minecraft:glass"
+  },
+  "pattern": [
+    "GGG",
+    "  D"
+  ],
+  "result": {
+    "count": 1,
+    "id": "doorways:cherry_glass_doorway_3"
+  }
+}

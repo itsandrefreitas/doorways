@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "group": "pale_oak_glass_doorway_1",
+  "key": {
+    "D": "doorways:pale_oak_doorway_1",
+    "G": "minecraft:glass"
+  },
+  "pattern": [
+    "G",
+    "D"
+  ],
+  "result": {
+    "count": 1,
+    "id": "doorways:pale_oak_glass_doorway_1"
+  }
+}

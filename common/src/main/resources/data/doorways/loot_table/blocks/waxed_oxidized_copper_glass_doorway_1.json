@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:block",
+  "random_sequence": "doorways:blocks/waxed_oxidized_copper_glass_doorway_1",
+  "pools": [
+    {
+      "rolls": 1.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "doorways:waxed_oxidized_copper_glass_doorway_1",
+          "conditions": [
+            {
+              "condition": "minecraft:block_state_property",
+              "block": "doorways:waxed_oxidized_copper_glass_doorway_1",
+              "properties": {
+                "half": "lower",
+                "part": "0"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

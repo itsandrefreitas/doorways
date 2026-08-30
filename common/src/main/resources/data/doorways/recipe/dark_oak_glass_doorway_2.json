@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "group": "dark_oak_glass_doorway_2",
+  "key": {
+    "D": "doorways:dark_oak_doorway_2",
+    "G": "minecraft:glass"
+  },
+  "pattern": [
+    "GG",
+    "D "
+  ],
+  "result": {
+    "count": 1,
+    "id": "doorways:dark_oak_glass_doorway_2"
+  }
+}

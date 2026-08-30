@@ -1,0 +1,38 @@
+// Pure geometry. No Minecraft, no loader, no game Gradle.
+// It is deliberately the one part of the mod testable without opening the game (§9).
+
+sourceSets {
+    // `GeometryCheck` is a program with main(), not a JUnit test. It lives in its own source
+    // set so that the `test` task does not try to run it as a test -- which is exactly what
+    // broke when it sat in src/test.
+    verify {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+dependencies {
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+    }
+}
+
+// A check with no external dependencies -- it also runs under plain javac/java, which keeps
+// it usable even without the Minecraft toolchain set up.
+tasks.register('geometryCheck', JavaExec) {
+    group = 'verification'
+    description = 'Verifies the geometry of 4 widths x 4 orientations x 2 states.'
+    classpath = sourceSets.verify.runtimeClasspath
+    mainClass = 'com.doorways.core.geometry.GeometryCheck'
+}
+
+tasks.named('check') {
+    dependsOn 'geometryCheck'
+}

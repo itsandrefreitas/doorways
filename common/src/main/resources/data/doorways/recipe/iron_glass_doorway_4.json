@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "group": "iron_glass_doorway_4",
+  "key": {
+    "D": "doorways:iron_doorway_4",
+    "G": "minecraft:glass"
+  },
+  "pattern": [
+    " G ",
+    "GDG",
+    " G "
+  ],
+  "result": {
+    "count": 1,
+    "id": "doorways:iron_glass_doorway_4"
+  }
+}

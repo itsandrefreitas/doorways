@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "L": "minecraft:mangrove_log",
+    "H": "doorways:iron_hinge"
+  },
+  "pattern": [
+    "LL ",
+    "LLH",
+    "LL "
+  ],
+  "result": {
+    "count": 4,
+    "id": "doorways:mangrove_doorway_1"
+  }
+}

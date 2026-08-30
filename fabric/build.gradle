@@ -1,0 +1,95 @@
+plugins {
+    id 'net.fabricmc.fabric-loom'
+}
+
+base {
+    archivesName = "${mod_id}-fabric"
+}
+
+// Shared by source, not by jar: this avoids cross-project remapping, which is the brittle
+// part of any multi-loader setup.
+sourceSets.main.java.srcDirs += [
+        project(':core').file('src/main/java'),
+        project(':common').file('src/main/java'),
+]
+sourceSets.main.resources.srcDirs += [
+        project(':common').file('src/main/resources'),
+]
+
+loom {
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+// Generates the blockstates and item definitions from the real geometry
+// (see DoorwayBlockStateProvider).
+fabricApi {
+    configureDataGeneration {
+        createSourceSet = false
+        modId = mod_id
+        client = true
+        addToResources = false
+        strictValidation = false
+        outputDirectory = file("${layout.buildDirectory.get()}/datagen")
+    }
+}
+
+// Publishes the datagen output into the shared resources, with a copy.
+//
+// Pointing datagen straight at that folder would be shorter and is the usual practice -- but it
+// deletes whatever it stops generating, and that folder also holds the texture generator's
+// 1200+ files. A copy never deletes anything.
+def publishGeneratedAssets = tasks.register('publishGeneratedAssets', Copy) {
+    from layout.buildDirectory.dir('datagen/assets')
+    into project(':common').file('src/main/resources/assets')
+    include '**/*.json'
+}
+tasks.matching { it.name == 'runDatagen' }.configureEach { finalizedBy publishGeneratedAssets }
+
+// Runs the com.doorways.test scenarios on a dedicated server, in a real world.
+//
+// This uses Loom's own support rather than a hand-rolled run config: it handles the property
+// that enables GameTest, clearing the run directory, the JUnit report, and wiring everything
+// into `check`.
+//
+// `createSourceSet = false` keeps the tests in the main source set -- simple, and the price is
+// that they ship in the jar. `eula = true` accepts Mojang's EULA for the test run; it is a
+// decision for whoever runs the build.
+fabricApi {
+    configureTests {
+        createSourceSet = false
+        modId = mod_id
+        enableGameTests = true
+        eula = true
+    }
+}
+
+dependencies {
+    // No mappings and no `modImplementation`: 26.2 is not obfuscated, so Loom remaps neither
+    // Minecraft nor the mods, and the `mod*` configurations no longer exist.
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+
+    implementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+}
+
+tasks.named('processResources') {
+    def props = [
+            version              : project.version,
+            mod_id               : mod_id,
+            mod_name             : mod_name,
+            mod_description      : mod_description,
+            mod_license          : mod_license,
+            mod_authors          : mod_authors,
+            java_version         : java_version,
+            minecraft_version    : minecraft_version,
+            fabric_loader_version: fabric_loader_version,
+    ]
+    inputs.properties props
+    filesMatching('fabric.mod.json') {
+        expand props
+    }
+}

@@ -1,0 +1,33 @@
+pluginManagement {
+    repositories {
+        maven {
+            name = 'Fabric'
+            url = uri('https://maven.fabricmc.net/')
+        }
+        maven {
+            name = 'NeoForged'
+            url = uri('https://maven.neoforged.net/releases')
+        }
+        gradlePluginPortal()
+        mavenCentral()
+    }
+    plugins {
+        id 'net.fabricmc.fabric-loom' version "${loom_version}"
+        id 'net.neoforged.moddev' version "${moddevgradle_version}"
+    }
+}
+
+// No foojay-resolver-convention: version 0.8.0 references JvmVendorSpec.IBM_SEMERU, a field
+// removed in Gradle 9.5, and it blew up in any task that requests a toolchain -- which only
+// NeoForge does. It exists to download JDKs automatically, and JDK 25 is already installed.
+// See D-30.
+
+rootProject.name = 'doorways'
+
+// core   -- pure Java, zero Minecraft. Testable in isolation.
+// common -- vanilla API. Shared by source with both loaders.
+// fabric / neoforge -- registration and entrypoint only.
+include 'core'
+include 'common'
+include 'fabric'
+include 'neoforge'

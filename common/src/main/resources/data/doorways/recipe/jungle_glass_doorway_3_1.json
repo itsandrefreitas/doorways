@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "group": "jungle_glass_doorway_3",
+  "key": {
+    "D": "doorways:jungle_doorway_3",
+    "G": "minecraft:glass"
+  },
+  "pattern": [
+    "GGG",
+    " D "
+  ],
+  "result": {
+    "count": 1,
+    "id": "doorways:jungle_glass_doorway_3"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "group": "waxed_copper_doorway_3",
+  "ingredients": [
+    "doorways:copper_doorway_3",
+    "minecraft:honeycomb"
+  ],
+  "result": {
+    "id": "doorways:waxed_copper_doorway_3"
+  }
+}

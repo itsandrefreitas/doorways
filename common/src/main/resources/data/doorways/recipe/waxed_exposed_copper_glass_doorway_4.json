@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "group": "waxed_exposed_copper_glass_doorway_4",
+  "key": {
+    "D": "doorways:waxed_exposed_copper_doorway_4",
+    "G": "minecraft:glass"
+  },
+  "pattern": [
+    " G ",
+    "GDG",
+    " G "
+  ],
+  "result": {
+    "count": 1,
+    "id": "doorways:waxed_exposed_copper_glass_doorway_4"
+  }
+}

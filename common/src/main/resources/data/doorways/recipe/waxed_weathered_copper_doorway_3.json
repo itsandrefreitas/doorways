@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "D": "doorways:waxed_weathered_copper_doorway_1"
+  },
+  "pattern": [
+    "DDD"
+  ],
+  "result": {
+    "count": 1,
+    "id": "doorways:waxed_weathered_copper_doorway_3"
+  }
+}

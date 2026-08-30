@@ -1,0 +1,76 @@
+{
+  "values": {
+    "doorways:copper_doorway_1": {
+      "next_oxidation_stage": "doorways:exposed_copper_doorway_1"
+    },
+    "doorways:exposed_copper_doorway_1": {
+      "next_oxidation_stage": "doorways:weathered_copper_doorway_1"
+    },
+    "doorways:weathered_copper_doorway_1": {
+      "next_oxidation_stage": "doorways:oxidized_copper_doorway_1"
+    },
+    "doorways:copper_glass_doorway_1": {
+      "next_oxidation_stage": "doorways:exposed_copper_glass_doorway_1"
+    },
+    "doorways:exposed_copper_glass_doorway_1": {
+      "next_oxidation_stage": "doorways:weathered_copper_glass_doorway_1"
+    },
+    "doorways:weathered_copper_glass_doorway_1": {
+      "next_oxidation_stage": "doorways:oxidized_copper_glass_doorway_1"
+    },
+    "doorways:copper_doorway_2": {
+      "next_oxidation_stage": "doorways:exposed_copper_doorway_2"
+    },
+    "doorways:exposed_copper_doorway_2": {
+      "next_oxidation_stage": "doorways:weathered_copper_doorway_2"
+    },
+    "doorways:weathered_copper_doorway_2": {
+      "next_oxidation_stage": "doorways:oxidized_copper_doorway_2"
+    },
+    "doorways:copper_glass_doorway_2": {
+      "next_oxidation_stage": "doorways:exposed_copper_glass_doorway_2"
+    },
+    "doorways:exposed_copper_glass_doorway_2": {
+      "next_oxidation_stage": "doorways:weathered_copper_glass_doorway_2"
+    },
+    "doorways:weathered_copper_glass_doorway_2": {
+      "next_oxidation_stage": "doorways:oxidized_copper_glass_doorway_2"
+    },
+    "doorways:copper_doorway_3": {
+      "next_oxidation_stage": "doorways:exposed_copper_doorway_3"
+    },
+    "doorways:exposed_copper_doorway_3": {
+      "next_oxidation_stage": "doorways:weathered_copper_doorway_3"
+    },
+    "doorways:weathered_copper_doorway_3": {
+      "next_oxidation_stage": "doorways:oxidized_copper_doorway_3"
+    },
+    "doorways:copper_glass_doorway_3": {
+      "next_oxidation_stage": "doorways:exposed_copper_glass_doorway_3"
+    },
+    "doorways:exposed_copper_glass_doorway_3": {
+      "next_oxidation_stage": "doorways:weathered_copper_glass_doorway_3"
+    },
+    "doorways:weathered_copper_glass_doorway_3": {
+      "next_oxidation_stage": "doorways:oxidized_copper_glass_doorway_3"
+    },
+    "doorways:copper_doorway_4": {
+      "next_oxidation_stage": "doorways:exposed_copper_doorway_4"
+    },
+    "doorways:exposed_copper_doorway_4": {
+      "next_oxidation_stage": "doorways:weathered_copper_doorway_4"
+    },
+    "doorways:weathered_copper_doorway_4": {
+      "next_oxidation_stage": "doorways:oxidized_copper_doorway_4"
+    },
+    "doorways:copper_glass_doorway_4": {
+      "next_oxidation_stage": "doorways:exposed_copper_glass_doorway_4"
+    },
+    "doorways:exposed_copper_glass_doorway_4": {
+      "next_oxidation_stage": "doorways:weathered_copper_glass_doorway_4"
+    },
+    "doorways:weathered_copper_glass_doorway_4": {
+      "next_oxidation_stage": "doorways:oxidized_copper_glass_doorway_4"
+    }
+  }
+}
