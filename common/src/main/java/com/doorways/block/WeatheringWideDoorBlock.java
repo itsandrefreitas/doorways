@@ -45,7 +45,9 @@ public class WeatheringWideDoorBlock extends WideDoorBlock implements Weathering
                 WeatherState.CODEC
                         .fieldOf("weathering_state").forGetter(WeatheringWideDoorBlock::getAge),
                 propertiesCodec())
-            .apply(i, WeatheringWideDoorBlock::new));
+            .apply(i, (width, mode, style, type, weathering, properties) ->
+                    sized(width, mode, () -> new WeatheringWideDoorBlock(
+                            width, mode, style, type, weathering, properties))));
 
     private final WeatherState weatherState;
 
@@ -68,7 +70,7 @@ public class WeatheringWideDoorBlock extends WideDoorBlock implements Weathering
 
     @Override
     protected void randomTick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        if (state.getValue(HALF) == DoubleBlockHalf.LOWER && state.getValue(PART) == 0) {
+        if (state.getValue(HALF) == DoubleBlockHalf.LOWER && partOf(state) == 0) {
             changeOverTime(state, level, pos, random);
         }
     }

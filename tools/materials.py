@@ -60,6 +60,11 @@ BOOKSHELF = ("bookshelf", "Bookshelf", "bookshelf", "minecraft:bookshelf")
 
 MATERIALS = WOODS + [IRON] + COPPER + [GLASS, BOOKSHELF]
 
+# Which ids belong to a pickaxe rather than an axe. A bookshelf door is wood with books in it.
+IRON_ID = IRON[0]
+GLASS_ID = GLASS[0]
+COPPER_IDS = {name for name, _, _, _ in COPPER}
+
 # style -> (materials, widths). Mirrors DoorStyle.materialsFor and DoorStyle.allowsWidth.
 STYLES = {
     "solid":      (WOODS + [IRON] + COPPER, (1, 2, 3, 4)),
@@ -69,6 +74,11 @@ STYLES = {
     # no copper: it is a wooden thing.
     "saloon":     (WOODS, (2, 4)),
     "bookshelf":  ([BOOKSHELF], (1, 2, 3, 4)),
+    # A sliding leaf is always two panels, one hiding behind the other, so two columns make one
+    # leaf and four make two. Nothing else divides evenly. No iron either: a fusuma runs in
+    # wooden grooves and has neither hinge nor metal track.
+    "fusuma":      (WOODS, (2, 4)),
+    "sliding_glass": ([GLASS], (2, 4)),
 }
 
 STYLE_INFIX = {
@@ -77,6 +87,8 @@ STYLE_INFIX = {
     "full_glass": "",
     "saloon": "_saloon",
     "bookshelf": "",
+    "fusuma": "_fusuma",
+    "sliding_glass": "_sliding",
 }
 
 STYLE_LABEL = {
@@ -85,7 +97,12 @@ STYLE_LABEL = {
     "full_glass": "",
     "saloon": " Saloon",
     "bookshelf": "",
+    "fusuma": " Fusuma",
+    "sliding_glass": " Sliding",
 }
+
+# The styles whose panels slide behind each other instead of turning. Mirrors DoorStyle.slides().
+SLIDING = ("fusuma", "sliding_glass")
 
 WIDTH_SUFFIX = {1: "", 2: " ×2", 3: " ×3", 4: " ×4"}
 
@@ -115,6 +132,12 @@ def model_stem(material, style, half, role, swung=False):
     upper = half == "top"
     infix = "" if (style == "glazed" and not upper) else STYLE_INFIX[style]
     stem = f"{material}{infix}_doorway_{half}_{role}"
+
+    # A sliding door has no swung model. Its panels never turn, so there is no texture to
+    # mirror; what its models say instead is which track a panel is on, and that is already in
+    # the role -- "front", "back" or "stacked".
+    if style in SLIDING:
+        return stem
     return stem + "_open" if swung else stem
 
 

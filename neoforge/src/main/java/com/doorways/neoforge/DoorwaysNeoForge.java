@@ -3,6 +3,7 @@ package com.doorways.neoforge;
 import com.doorways.Doorways;
 import com.doorways.block.DoorVariant;
 import com.doorways.block.DoorwaysContent;
+import com.doorways.block.SlidingPanelsBlockEntity;
 import java.util.Map;
 import java.util.function.Supplier;
 import net.minecraft.core.registries.Registries;
@@ -11,6 +12,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -40,6 +42,8 @@ public final class DoorwaysNeoForge {
             DeferredRegister.createItems(Doorways.MOD_ID);
     private static final DeferredRegister<CreativeModeTab> TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Doorways.MOD_ID);
+    private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
+            DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, Doorways.MOD_ID);
 
     private final Map<DoorVariant, Supplier<Block>> doors;
 
@@ -54,10 +58,20 @@ public final class DoorwaysNeoForge {
             public Supplier<Item> item(ResourceKey<Item> key, Supplier<Item> factory) {
                 return ITEMS.register(key.identifier().getPath(), factory);
             }
+
+            @Override
+            public Supplier<BlockEntityType<SlidingPanelsBlockEntity>> blockEntity(
+                    ResourceKey<BlockEntityType<?>> key,
+                    Supplier<BlockEntityType<SlidingPanelsBlockEntity>> factory) {
+                return BLOCK_ENTITIES.register(key.identifier().getPath(), factory);
+            }
         };
 
         doors = DoorwaysContent.registerAll(Doorways.MOD_ID, registrar);
-        Supplier<Item> hinge = DoorwaysContent.registerHinge(Doorways.MOD_ID, registrar);
+        Supplier<Item> hinge = DoorwaysContent.registerComponent(
+                Doorways.MOD_ID, registrar, DoorwaysContent.HINGE);
+        Supplier<Item> track = DoorwaysContent.registerComponent(
+                Doorways.MOD_ID, registrar, DoorwaysContent.TRACK);
 
         // Own tab: with 168 doors, dumping them into a vanilla tab would make it unusable.
         // displayItems runs well after registration, so it can call the suppliers.
@@ -66,10 +80,12 @@ public final class DoorwaysNeoForge {
                 .icon(() -> hinge.get().getDefaultInstance())
                 .displayItems((parameters, output) -> {
                     output.accept(hinge.get());
+                    output.accept(track.get());
                     doors.values().forEach(door -> output.accept(door.get()));
                 })
                 .build());
 
+        BLOCK_ENTITIES.register(modEventBus);
         BLOCKS.register(modEventBus);
         ITEMS.register(modEventBus);
         TABS.register(modEventBus);

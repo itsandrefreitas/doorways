@@ -4,6 +4,7 @@ import com.doorways.Doorways;
 import com.doorways.block.DoorStyle;
 import com.doorways.block.DoorVariant;
 import com.doorways.block.DoorwaysContent;
+import com.doorways.block.SlidingPanelsBlockEntity;
 import java.util.Map;
 import java.util.function.Supplier;
 import net.fabricmc.api.ModInitializer;
@@ -18,6 +19,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.WeatheringCopperCollection;
 
 public final class DoorwaysFabric implements ModInitializer {
@@ -41,10 +43,22 @@ public final class DoorwaysFabric implements ModInitializer {
                 Item item = Registry.register(BuiltInRegistries.ITEM, key, factory.get());
                 return () -> item;
             }
+
+            @Override
+            public Supplier<BlockEntityType<SlidingPanelsBlockEntity>> blockEntity(
+                    ResourceKey<BlockEntityType<?>> key,
+                    Supplier<BlockEntityType<SlidingPanelsBlockEntity>> factory) {
+                BlockEntityType<SlidingPanelsBlockEntity> type = Registry.register(
+                        BuiltInRegistries.BLOCK_ENTITY_TYPE, key, factory.get());
+                return () -> type;
+            }
         };
 
         doors = DoorwaysContent.registerAll(Doorways.MOD_ID, registrar);
-        Supplier<Item> hinge = DoorwaysContent.registerHinge(Doorways.MOD_ID, registrar);
+        Supplier<Item> hinge = DoorwaysContent.registerComponent(
+                Doorways.MOD_ID, registrar, DoorwaysContent.HINGE);
+        Supplier<Item> track = DoorwaysContent.registerComponent(
+                Doorways.MOD_ID, registrar, DoorwaysContent.TRACK);
         registerCopperFamilies();
 
         // Own tab: with 168 doors, dumping them into a vanilla tab would make it unusable.
@@ -56,6 +70,7 @@ public final class DoorwaysFabric implements ModInitializer {
                         .icon(() -> new ItemStack(hinge.get()))
                         .displayItems((parameters, output) -> {
                             output.accept(hinge.get());
+                            output.accept(track.get());
                             doors.values().forEach(door -> output.accept(door.get()));
                         })
                         .build());

@@ -142,8 +142,8 @@ class DoorLayoutTest {
     void splitIgnoresHinge() {
         for (Facing facing : Facing.values()) {
             for (int width : new int[] {2, 4}) {
-                DoorLayout left = new DoorLayout(facing, width, DoorMode.SPLIT, Hinge.LEFT);
-                DoorLayout right = new DoorLayout(facing, width, DoorMode.SPLIT, Hinge.RIGHT);
+                DoorLayout left = new DoorLayout(facing, width, DoorMode.SPLIT, Hinge.LEFT, Motion.SWING);
+                DoorLayout right = new DoorLayout(facing, width, DoorMode.SPLIT, Hinge.RIGHT, Motion.SWING);
                 for (Swing swing : Swing.values()) {
                     assertEquals(left.footprint(swing), right.footprint(swing),
                             "SPLIT " + width + " " + facing + state(swing)
@@ -267,6 +267,53 @@ class DoorLayoutTest {
     }
 
     @Test
+    @DisplayName("a sliding door never moves a block, and so can never be blocked")
+    void slidingNeverMovesBlocks() {
+        forEachSlidingLayout(layout -> {
+            assertEquals(layout.footprint(Swing.CLOSED), layout.footprint(Swing.OUT),
+                    desc(layout) + " should open without moving anything");
+            assertFalse(layout.movesBlocks(), desc(layout) + " movesBlocks()");
+            assertTrue(layout.newlyOccupied(Swing.CLOSED, Swing.OUT).isEmpty(),
+                    desc(layout) + " should have no position to validate");
+        });
+    }
+
+    @Test
+    @DisplayName("a sliding leaf stacks into one column and leaves the others clear")
+    void slidingLeafParksInOneColumn() {
+        forEachSlidingLayout(layout -> {
+            int panels = 0;
+            int parked = 0;
+            for (int part = 0; part < layout.width(); part++) {
+                assertEquals(1, layout.panelsAt(part, Swing.CLOSED),
+                        desc(layout) + " closed, PART " + part + " should show one panel");
+
+                int open = layout.panelsAt(part, Swing.OUT);
+                panels += open;
+                if (open > 0) {
+                    parked++;
+                    assertTrue(layout.parksHere(part),
+                            desc(layout) + " PART " + part + " holds panels but is not a parking column");
+                    assertEquals(DoorLayout.SLIDING_LEAF, open,
+                            desc(layout) + " PART " + part + " should hold a whole leaf");
+                }
+            }
+            // Opening hides panels behind each other; it does not destroy or invent any.
+            assertEquals(layout.width(), panels, desc(layout) + " lost or gained panels on opening");
+            assertEquals(layout.width() / DoorLayout.SLIDING_LEAF, parked,
+                    desc(layout) + " should park one column per leaf");
+        });
+    }
+
+    @Test
+    @DisplayName("a sliding door has one open position, not two")
+    void slidingHasNoSecondDirection() {
+        DoorLayout layout = DoorLayout.sliding(Facing.NORTH, 2, Hinge.LEFT);
+        assertThrows(IllegalArgumentException.class, () -> layout.offset(0, Swing.BACK),
+                "a sliding leaf runs on a track and has nowhere else to go");
+    }
+
+    @Test
     @DisplayName("impossible layouts are rejected")
     void invalidLayoutsRejected() {
         assertThrows(IllegalArgumentException.class,
@@ -274,7 +321,7 @@ class DoorLayoutTest {
         assertThrows(IllegalArgumentException.class,
                 () -> DoorLayout.of(Facing.NORTH, 5, Hinge.LEFT), "width 5");
         assertThrows(IllegalArgumentException.class,
-                () -> new DoorLayout(Facing.NORTH, 3, DoorMode.SPLIT, Hinge.LEFT),
+                () -> new DoorLayout(Facing.NORTH, 3, DoorMode.SPLIT, Hinge.LEFT, Motion.SWING),
                 "SPLIT with an odd width");
         assertThrows(IllegalArgumentException.class,
                 () -> DoorLayout.of(Facing.NORTH, 2, Hinge.LEFT).closedOffset(2),
@@ -282,6 +329,11 @@ class DoorLayoutTest {
         assertThrows(IllegalArgumentException.class,
                 () -> DoorLayout.of(Facing.NORTH, 2, Hinge.LEFT).swingAxis(Swing.CLOSED),
                 "a closed leaf has no swing axis");
+        for (int width : new int[] {1, 3}) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> DoorLayout.sliding(Facing.NORTH, width, Hinge.LEFT),
+                    "width " + width + " cannot be divided into leaves of two panels");
+        }
     }
 
     // ----------------------------------------------------------------- helpers
@@ -303,6 +355,23 @@ class DoorLayoutTest {
             for (int width = 1; width <= 4; width++) {
                 for (Hinge hinge : Hinge.values()) {
                     body.accept(DoorLayout.of(facing, width, hinge));
+                }
+            }
+        }
+    }
+
+    /**
+     * The sliding layouts, kept apart from the swinging ones.
+     *
+     * <p>They cannot share {@link #forEachLayout}: half the assertions above ask about
+     * {@code BACK}, which a sliding door rejects, and the other half are about a translation it
+     * never performs.
+     */
+    private static void forEachSlidingLayout(Consumer<DoorLayout> body) {
+        for (Facing facing : Facing.values()) {
+            for (int width : new int[] {2, 4}) {
+                for (Hinge hinge : Hinge.values()) {
+                    body.accept(DoorLayout.sliding(facing, width, hinge));
                 }
             }
         }

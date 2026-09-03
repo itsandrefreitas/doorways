@@ -19,6 +19,9 @@
     "main": [
       "com.doorways.fabric.DoorwaysFabric"
     ],
+    "client": [
+      "com.doorways.fabric.DoorwaysFabricClient"
+    ],
     "fabric-gametest": [
       "com.doorways.fabric.DoorwaysGameTests"
     ],

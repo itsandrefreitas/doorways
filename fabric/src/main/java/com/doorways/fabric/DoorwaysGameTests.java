@@ -70,4 +70,24 @@ public class DoorwaysGameTests {
     public void saloonIgnoresRedstone(GameTestHelper helper) {
         DoorwayScenarios.saloonIgnoresRedstone(helper);
     }
+
+    @GameTest(maxTicks = TICKS)
+    public void slidingOpensEvenWalledIn(GameTestHelper helper) {
+        DoorwayScenarios.slidingOpensEvenWalledIn(helper);
+    }
+
+    @GameTest(maxTicks = TICKS)
+    public void slidingClearsTheColumnItLeaves(GameTestHelper helper) {
+        DoorwayScenarios.slidingClearsTheColumnItLeaves(helper);
+    }
+
+    @GameTest(maxTicks = TICKS)
+    public void slidingAnswersRedstone(GameTestHelper helper) {
+        DoorwayScenarios.slidingAnswersRedstone(helper);
+    }
+
+    @GameTest(maxTicks = TICKS)
+    public void onlyTheAnchorDrops(GameTestHelper helper) {
+        DoorwayScenarios.onlyTheAnchorDrops(helper);
+    }
 }

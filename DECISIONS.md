@@ -4,7 +4,7 @@ The project started from a Portuguese specification document, kept outside this 
 This document records the **explicit later changes** that the spec itself anticipates, settles
 the decisions it left open, and is the source of truth wherever the two disagree.
 
-Status: **v0.4** · Last updated: 2026-08-30
+Status: **v0.5** · Last updated: 2026-09-03
 
 This is not a changelog. It records *why* each non-obvious choice was made — including the ones
 that were wrong first. If you are here to contribute, this file is worth more than the code.
@@ -58,6 +58,7 @@ reflect that. `LootData` was removed — relevant to §7.
 **21 materials, 168 doors** at the time of this decision. The 12 vanilla woods plus bamboo,
 iron, and the **8 copper states** (four oxidation stages × waxed/unwaxed). Glass and bookshelf
 arrived later with their own styles, bringing it to 23 materials and 200 doors -- see D-35.
+The sliding styles brought it to **226** without adding a material (D-37).
 
 Each material brings its own vanilla `BlockSetType`, and with it the correct opening, closing
 and step sounds, plus `canOpenByHand` — the iron door refuses to open by hand without a single
@@ -87,8 +88,8 @@ Per-part state in v0.1:
 | `FACING` | N / S / E / W | orientation of the closed door |
 | `OPEN`   | true / false | |
 | `HALF`   | LOWER / UPPER | |
-| `PART`   | `0 .. width-1` | column index; range declared per block class |
-| `HINGE`  | LEFT / RIGHT | **no effect when `MODE = SPLIT`** (see D-05) |
+| `PART`   | `0 .. width-1` | column index; one property per width since D-38 |
+| `HINGE`  | LEFT / RIGHT | **no effect when `MODE = SPLIT`** (see D-05) -- and, since D-38, not declared there at all |
 
 Properties of the block **class**, not of the BlockState (§3's decision stands):
 `WIDTH` ∈ {1,2,3,4} and `MODE` ∈ {SINGLE, SPLIT}.
@@ -131,6 +132,9 @@ without refactoring the geometry.
 
 Consequence: when `MODE = SPLIT`, each half has its own implicit hinge at the ends, so
 **`HINGE` is ignored**.
+
+> This sat here as a footnote for a month. It was worth 15,232 blockstates: a property ignored is
+> a property that should not be declared, and D-38 finally stopped declaring it.
 
 ---
 
@@ -273,6 +277,10 @@ Consequences:
 
 ## D-22 — `PART` is 0..3 on every block, even the narrow ones
 
+> **SUPERSEDED on 2026-09-02 by D-38.** The reasoning below is still why this is hard; the
+> conclusion cost 22,528 unreachable states and was reversed. `PART` is now one property per
+> width, and a door with one column has none at all.
+
 `createBlockStateDefinition` is called from `Block`'s constructor, before subclass fields are
 assigned. There is no way to declare a `PART` range that depends on the instance's width without
 fragile tricks.
@@ -401,6 +409,219 @@ the daemon itself runs on it. Removed.
 > was never verified against anything.
 
 Gradle stays on **9.5.1**, as Fabric recommends.
+
+---
+
+## D-37 — Doors that slide, and the renderer they needed
+
+A sliding door was asked for as a style of its own: Japanese in shape, opened by hand or by
+redstone, and — the constraint that decided everything else — **without a cavity in the wall for
+the leaf to disappear into**. A cavity ruins the build it is cut into, and a door that damages
+the wall around it is not a door anyone will use.
+
+### A leaf is two panels, one behind the other
+
+That constraint rules out the obvious implementation. Without somewhere to hide, a leaf can only
+slide as far as its own width, so a leaf is made of **two panels running on two tracks**: shut,
+they sit side by side and fill two blocks; open, one runs behind the other and both occupy one.
+
+The consequence is worth stating plainly, because it is what makes a sliding door different from
+every other door here: **it displaces nothing.** The columns it occupies open are the columns it
+occupied shut. `DoorLayout` says so directly — under `Motion.SLIDE` the offsets collapse to the
+closed ones, and what changes is `panelsAt`, which puts the whole leaf in the column it parks in
+and leaves the other empty.
+
+| Width | Mode | Open leaves | Doorway |
+|---|---|---|---|
+| 2 | SINGLE | one leaf, slides to one side | 1 block |
+| 4 | SPLIT | two leaves, parting from the middle | 2 blocks |
+
+Odd widths are not offered: a leaf is two panels, so a door is a whole number of leaves.
+
+### `Motion` is not `DoorMode`
+
+Sliding is a **motion**, and it is deliberately a separate enum from the mode. `DoorMode` says how
+many leaves a door has and where they part; `Motion` says what a leaf does when it opens. Keeping
+them apart is what lets a 4-wide sliding door be `SPLIT` and slide, rather than needing a third
+mode that means "split, but sliding" — and it is what leaves room for a gate that slides in two
+halves without touching either enum.
+
+### The drawing had to leave the blockstate behind
+
+A blockstate is a discrete thing. It can say *shut* and it can say *open*, and it has nowhere to
+put a panel that is a third of the way across. Every door before this one snapped between two
+positions and looked right doing it, because a hinge turns and a snap is a turn you missed. A
+panel that slides has to be **somewhere in between**, or it is not sliding at all.
+
+So the mod gained its first block entity and its first client code — and neither of them holds
+anything the game depends on. `SlidingPanelsBlockEntity` stores no state, syncs no packets and
+writes nothing to disk: it watches its own blockstate, notices when the answer changes, and
+interpolates. A door whose block entity vanished would still open, still close and still drop
+correctly; it would simply stop gliding and start snapping, like every other door in the mod.
+
+**One door, one departure.** Each panel keeps its own start, finish and clock, but takes the
+*moment of departure* from the door's anchor: the first panel to notice sets it, the rest are
+handed it. Sharing the running clock instead was tried and was worse — a panel that had not yet
+noticed went on interpolating its previous journey against a stopwatch that had just been reset,
+and slid backwards for a tick. The two roles are separate fields on the anchor for that reason,
+and mixing them back into one is exactly the bug it looks like it cannot be.
+
+### Why the renderer does not simply draw every sliding door
+
+It did, at first, and that made them **disappear past 64 blocks** — the default reach of a block
+entity renderer. The fix was to hand the drawing back and forth: `SlidingDoorBlock.SLIDING` marks
+the third of a second a panel is travelling, the block goes invisible for exactly that long, and
+the rest of the time it is an ordinary block batched into the chunk mesh like any other. The
+renderer's reach was also raised to 512, because a door that opens 100 blocks away should still
+be seen opening.
+
+That handover is invisible only while both sides draw the same pixels in the same place. Three
+times it did not, and each one was a different lesson:
+
+- **A chunk's mesh is rebuilt one to three frames late.** On arrival the flag cleared, the
+  renderer let go in the same frame, and the mesh that was to replace it was still the old one —
+  which drew nothing. The door blinked out at the end of every slide. Fixed by three ticks of
+  deliberate overlap.
+- **A stale scheduled tick can end the wrong journey.** Every departure schedules the tick that
+  ends it; a door told to reverse departs again and leaves the first tick in the queue, due in
+  the middle of the second journey. It cleared the flag early, the panel was dropped wherever it
+  had got to, and the next click started from the middle. Now the departure is written down and
+  an early tick sends itself away.
+- **Glass cannot cross that boundary at all.** See below.
+
+### The one style that never hands over
+
+Through a see-through panel, the two paths are visibly different renderers:
+
+- the mesh drops the faces where two panels meet, because on an opaque door nobody can see them
+  — through glass, those faces are what shows there is a second panel behind the first, and
+  arriving turned two panes into one;
+- the mesh drops faces against neighbouring blocks and the renderer keeps them, because the
+  renderer is shown a world containing only the panel;
+- and the rebuild delay above becomes a double blend rather than a hole: drawn twice, glass goes
+  momentarily solid.
+
+None of that can be bridged, so `DoorStyle.drawnByRenderer()` makes the glass sliding door
+**always** the renderer's job, at rest as much as in flight. It costs a block entity drawn every
+frame instead of geometry batched into the chunk — which is what a chest costs — and it buys a
+door that looks the same standing still as it does moving.
+
+It also cost the cracks. The game spreads breaking damage over the chunk's mesh, and a block
+that is not in the mesh shows none: the door broke in the same time and dropped the same item,
+but nothing on it answered being hit, which reads as a block that cannot be broken. The renderer
+now draws them itself, with the same call the game makes for any other block.
+
+### Fusuma, not shoji
+
+The style was drawn from photographs the author supplied: **fusuma** — solid papered panels in a
+plain wooden frame — rather than the translucent latticed shoji it started as. Twelve woods, plus
+a glass one in neutral tones. Both need a **sliding track**, a component of its own, so that a
+door which runs in a groove costs something a hinged door does not:
+
+| | 3×3 grid | Legend |
+|---|---|---|
+| Sliding track ×4 | `LsL` | L = planks, s = stick |
+| Fusuma ×2 | `TT / PP / FF` | T = track, P = paper, F = that wood's planks |
+| Sliding glass ×2 | `TT / PP / FF` | T = track, P = glass, F = iron ingot |
+| Width 4 | `DD` | D = two of the 2-wide door |
+
+Two columns rather than three, at the author's request: three planks in a column make a slab, and
+a recipe should not read like one.
+
+---
+
+## D-38 — The state space is a budget, and we were overdrawn (supersedes D-22)
+
+Every blockstate is an object the game builds at start-up and keeps for the session. Vanilla's
+whole block set comes to roughly 27,000 of them. This mod, at v0.3.0-dev, had **173,568** — more
+than six times the game it is a mod for, from 226 doors. Start-up was measurably slower with the
+mod installed, which is what made it visible.
+
+None of it was carelessness in the ordinary sense. Each property was added for a real reason and
+declared in the one place all doors share, and the multiplication happened quietly afterwards.
+That is the lesson worth keeping: **a property costs its own values times every door that does
+not need it.**
+
+Five cuts, all the same shape — a property is declared by the doors that read it, and by no
+others:
+
+| Change | Carried by | Was | Became | Saved |
+|---|---|---|---|---|
+| `SLIDING` → `SlidingDoorBlock` | 26 of 226 | 173,568 | 96,768 | 76,800 |
+| `SWING`'s third value → `SpringDoorBlock` | 24 of 226 | 96,768 | 67,584 | 29,184 |
+| `PART` per width | 182 of 226 | 67,584 | 45,056 | 22,528 |
+| `HINGE` off `SPLIT` doors | 101 of 226 | 45,056 | 29,824 | 15,232 |
+| `POWERED` off spring doors | 202 of 226 | 29,824 | **28,096** | 1,728 |
+
+**84% gone, and nothing about the doors changed.** No behaviour, no model, no recipe: every state
+removed was one that could never occur, or one that no code ever read — a hinged door mid-slide,
+an ordinary door open on its wrong side, a 1-wide door's column 3, a hinge on a leaf that pivots
+about its own end, a signal on a door that ignores signals.
+
+For scale: 226 articulated doors now cost about the same as the entire vanilla block set, and the
+whole reduction is invisible from inside the game.
+
+### The last two are dead state, not a trade-off
+
+The first three moved a property to the doors that need it. These two removed properties that
+**nothing reads**, which is a different and more embarrassing kind of waste:
+
+- `DoorLayout.pivotAtLowEnd` answers `part < width / 2` under `SPLIT` and never consults the
+  hinge. A door that opens from the middle is symmetric about that middle: each leaf turns about
+  its own outer end, and there is no side for a hinge to be on. The property was two values that
+  produced identical geometry and identical models, on 125 doors.
+- D-36 already established that a spring door ignores redstone entirely — a latchless hinge has
+  no position it can be held in. `POWERED` was written at placement and read by nobody.
+
+Both are reversible by construction: if a future gate wants an asymmetric split leaf, that is a
+new `DoorMode`, and a mode that needs a hinge declares one. The rule is per shape, not per class.
+
+`HINGE` is decided by the mode, which — like the width — the block does not yet know when
+`createBlockStateDefinition` runs, so the handover carries both. `POWERED` needed no handover:
+being spring-loaded *is* the class, so `SpringDoorBlock` overrides `recordsSignal()`.
+
+### Why the first two are classes
+
+A subclass for one property looks disproportionate until the arithmetic is done. `SlidingDoorBlock`
+exists to hold one boolean, and that boolean was costing 76,800 states so that 26 doors could
+use it. The class is the cheapest way to say *this property belongs to these doors*, and it also
+says it where a reader will find it.
+
+### Why `PART` is a static array and a `ThreadLocal`
+
+This is the part that is not pretty, and it supersedes **D-22**, which accepted `part = 0..3` on
+every door because `createBlockStateDefinition` runs from `Block`'s constructor — before any field
+of ours exists. That reasoning was correct; the conclusion cost 22,528 states in columns that can
+never be occupied. A 1-wide door carried three unreachable states for every real one.
+
+The two ways out:
+
+- **A class per width.** Honest, and it multiplies: four for plain doors, four for sliding, four
+  for spring — twelve today, and four more for every family added afterwards. With gates planned,
+  this is a tax on every future door.
+- **Tell the class its shape just before it is built.** One `ThreadLocal<Shape>` holding the
+  width and the mode, set by `WideDoorBlock.sized(width, mode, factory)` around a single
+  synchronous construction, read by `createBlockStateDefinition`, cleared in a `finally`. It does
+  not grow with the number of door families.
+
+The second was chosen, with one condition: **it must fail loudly.** A hidden static that silently
+does the wrong thing when someone constructs a door the other way would be a far worse bug than
+the states it saves. So `createBlockStateDefinition` throws outright if it is asked for a
+definition with no shape in flight, and every construction path — registration in
+`DoorVariant.createBlock`, and all four `MapCodec`s — goes through `sized`. A door built by any
+other route fails at once, at start-up, with a message naming the fix.
+
+The visible cost is in datagen: `DoorwayBlockStateProvider` dispatches on five properties, or
+four, or four again without the hinge, because a door declares only what it reads. Three
+branches, paid once, in the one place that has to enumerate every state anyway.
+
+### The standing rule
+
+Requested explicitly, and recorded here rather than in a comment: **all code is to be written to
+be optimised and to scale.** The doors in this mod are the first family, not the last — gates are
+planned, and they are wider and more complex. A cost that multiplies across 226 doors will
+multiply across 400. Every new property is now to be justified against the doors that will carry
+it and not use it.
 
 ---
 

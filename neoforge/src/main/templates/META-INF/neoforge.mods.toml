@@ -6,7 +6,7 @@ version = "${version}"
 displayName = "${mod_name}"
 description = '''${mod_description}'''
 authors = "${mod_authors}"
-logoFile = "assets/doorways/icon.png"
+iconFile = "assets/doorways/icon.png"
 displayURL = "https://github.com/itsandrefreitas/doorways"
 issueTrackerURL = "https://github.com/itsandrefreitas/doorways/issues"
 

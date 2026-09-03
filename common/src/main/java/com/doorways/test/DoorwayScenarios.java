@@ -23,6 +23,7 @@ import net.minecraft.world.level.block.state.properties.DoorHingeSide;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * The test scenarios, shared by both loaders.
@@ -336,7 +337,146 @@ public final class DoorwayScenarios {
                 .thenSucceed();
     }
 
+    /**
+     * A sliding door opens with solid rock on every side of it.
+     *
+     * <p>This is the promise the whole style rests on. Its panels hide behind each other inside
+     * the columns the door already occupies, so there is no position to validate and nothing
+     * that can be in the way. Anyone who later "improves" it into sliding out of the doorway --
+     * which is what a real pocket door does -- fails here, which is the point.
+     */
+    public static void slidingOpensEvenWalledIn(GameTestHelper helper) {
+        Block door = door("oak", 2, DoorStyle.FUSUMA);
+        BlockPos origin = new BlockPos(3, FLOOR_Y + 1, 3);
+        floor(helper, 8, 8);
+        place(helper, door, origin, Direction.SOUTH, DoorHingeSide.LEFT);
+
+        List<BlockPos> columns = footprint(helper, door, origin, Swing.CLOSED);
+        for (BlockPos column : columns) {
+            for (BlockPos half : List.of(column, column.above())) {
+                for (Direction side : Direction.Plane.HORIZONTAL) {
+                    BlockPos neighbour = half.relative(side);
+                    if (!columns.contains(neighbour) && !columns.contains(neighbour.below())) {
+                        helper.setBlock(neighbour, Blocks.STONE);
+                    }
+                }
+            }
+        }
+
+        helper.startSequence()
+                .thenExecute(() -> use(helper, columns.get(0)))
+                .thenIdle(2)
+                .thenExecute(() -> assertDoor(helper, door, columns, Swing.OUT))
+                .thenSucceed();
+    }
+
+    /**
+     * Opening actually opens something: the column the leaf leaves becomes walkable.
+     *
+     * <p>Asserting the state alone would pass on a door that changed its mind and moved nothing.
+     * What matters is the hole, so this asks the collision: the column a leaf parks in stays as
+     * solid as it was, and every other one is empty.
+     */
+    public static void slidingClearsTheColumnItLeaves(GameTestHelper helper) {
+        Block door = door("oak", 4, DoorStyle.FUSUMA);
+        BlockPos origin = new BlockPos(2, FLOOR_Y + 1, 3);
+        floor(helper, 8, 8);
+        place(helper, door, origin, Direction.SOUTH, DoorHingeSide.LEFT);
+
+        List<BlockPos> columns = footprint(helper, door, origin, Swing.CLOSED);
+        DoorLayout layout = layout(helper, door, origin);
+
+        helper.startSequence()
+                .thenExecute(() -> {
+                    for (BlockPos column : columns) {
+                        helper.assertFalse(shapeAt(helper, column).isEmpty(),
+                                "a shut door should block " + column);
+                    }
+                })
+                .thenExecute(() -> use(helper, columns.get(0)))
+                .thenIdle(2)
+                .thenExecute(() -> {
+                    for (int part = 0; part < columns.size(); part++) {
+                        boolean parks = layout.parksHere(part);
+                        boolean clear = shapeAt(helper, columns.get(part)).isEmpty();
+                        helper.assertTrue(parks != clear, "open, PART " + part
+                                + (parks ? " parks a leaf and should still block"
+                                         : " lost its leaf and should be walkable"));
+                    }
+                })
+                .thenSucceed();
+    }
+
+    /** A sliding door answers redstone, unlike the spring-hinged one. */
+    public static void slidingAnswersRedstone(GameTestHelper helper) {
+        Block door = door("oak", 2, DoorStyle.FUSUMA);
+        BlockPos origin = new BlockPos(3, FLOOR_Y + 1, 3);
+        floor(helper, 8, 8);
+        place(helper, door, origin, Direction.SOUTH, DoorHingeSide.LEFT);
+
+        List<BlockPos> columns = footprint(helper, door, origin, Swing.CLOSED);
+        BlockPos power = columns.get(0).below();
+
+        helper.startSequence()
+                .thenExecute(() -> helper.setBlock(power, Blocks.REDSTONE_BLOCK))
+                .thenIdle(4)
+                .thenExecute(() -> assertDoor(helper, door, columns, Swing.OUT))
+                .thenExecute(() -> helper.setBlock(power, Blocks.AIR))
+                .thenIdle(4)
+                .thenExecute(() -> assertDoor(helper, door, columns, Swing.CLOSED))
+                .thenSucceed();
+    }
+
+    /**
+     * A door drops exactly one door, whatever part of it is broken, at every width.
+     *
+     * <p>The single drop (D-09) rests entirely on the loot table: every part has the same one,
+     * and only the anchor -- lower half, column 0 -- passes its condition. That condition names
+     * properties, and a property a door does not have makes the <b>whole table</b> fail to
+     * parse, which leaves the door dropping nothing at all. Silently: one line in the log at
+     * start-up, and then a door that vanishes when broken in survival.
+     *
+     * <p>That is not hypothetical. When {@code part} became one property per width (D-38), the
+     * 44 one-column doors kept a {@code part=0} condition for a property they had just lost.
+     * Every other test passed -- they check where blocks are, and the blocks were right.
+     *
+     * <p>This reads the loot table through the same call the breaking path uses, rather than
+     * mining a block, because the table is the part that breaks and the rest is vanilla's.
+     */
+    public static void onlyTheAnchorDrops(GameTestHelper helper) {
+        Block narrow = door("oak", 1);
+        Block wide = door("oak", 4);
+        BlockPos one = new BlockPos(1, FLOOR_Y + 1, 2);
+        BlockPos four = new BlockPos(2, FLOOR_Y + 1, 5);
+        floor(helper, 8, 8);
+        place(helper, narrow, one, Direction.SOUTH, DoorHingeSide.LEFT);
+        place(helper, wide, four, Direction.SOUTH, DoorHingeSide.LEFT);
+
+        List<BlockPos> columns = footprint(helper, wide, four, Swing.CLOSED);
+
+        // The anchor of each door: one column or four, the rule is the same.
+        assertDrops(helper, one, 1);
+        assertDrops(helper, columns.get(0), 1);
+
+        // And nothing else drops, or a 4-wide door would come back as four doors.
+        assertDrops(helper, one.above(), 0);
+        for (int part = 1; part < columns.size(); part++) {
+            assertDrops(helper, columns.get(part), 0);
+            assertDrops(helper, columns.get(part).above(), 0);
+        }
+        helper.succeed();
+    }
+
     // ---------------------------------------------------------------- helpers
+
+    /** How many items this part's loot table yields. */
+    private static void assertDrops(GameTestHelper helper, BlockPos pos, int expected) {
+        BlockPos absolute = helper.absolutePos(pos);
+        BlockState state = helper.getLevel().getBlockState(absolute);
+        int dropped = Block.getDrops(state, helper.getLevel(), absolute, null).size();
+        helper.assertTrue(dropped == expected,
+                "part at " + pos + " dropped " + dropped + " items, expected " + expected);
+    }
 
     /** Looks up the registered solid door for this material and width. */
     private static Block door(String material, int width) {
@@ -373,13 +513,12 @@ public final class DoorwayScenarios {
      */
     private static void place(GameTestHelper helper, Block door, BlockPos origin,
                               Direction facing, DoorHingeSide hinge) {
-        BlockState lower = door.defaultBlockState()
-                .setValue(WideDoorBlock.FACING, facing)
-                .setValue(WideDoorBlock.HINGE, hinge)
-                .setValue(WideDoorBlock.SWING, DoorSwing.CLOSED)
-                .setValue(WideDoorBlock.POWERED, false)
-                .setValue(WideDoorBlock.PART, 0)
-                .setValue(WideDoorBlock.HALF, DoubleBlockHalf.LOWER);
+        WideDoorBlock block = (WideDoorBlock) door;
+        BlockState lower = block.withPart(block.withPowered(
+                block.withHinge(door.defaultBlockState()
+                        .setValue(WideDoorBlock.FACING, facing), hinge)
+                        .setValue(block.swingProperty(), DoorSwing.CLOSED), false)
+                .setValue(WideDoorBlock.HALF, DoubleBlockHalf.LOWER), 0);
         BlockPos absolute = helper.absolutePos(origin);
         helper.getLevel().setBlock(absolute, lower, Block.UPDATE_ALL);
         door.setPlacedBy(helper.getLevel(), absolute, lower, null, ItemStack.EMPTY);
@@ -433,9 +572,12 @@ public final class DoorwayScenarios {
      * edge or the opposite one, depending on which way it turned.
      */
     private static AABB leafBounds(GameTestHelper helper, BlockPos pos) {
-        return helper.getBlockState(pos)
-                .getShape(helper.getLevel(), helper.absolutePos(pos))
-                .bounds();
+        return shapeAt(helper, pos).bounds();
+    }
+
+    /** The collision at a position, which is where "is the doorway open" is really answered. */
+    private static VoxelShape shapeAt(GameTestHelper helper, BlockPos pos) {
+        return helper.getBlockState(pos).getShape(helper.getLevel(), helper.absolutePos(pos));
     }
 
     /** Clicks the door with an empty hand, as a player would. */

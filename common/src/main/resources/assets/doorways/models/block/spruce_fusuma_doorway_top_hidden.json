@@ -1,0 +1,7 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "doorways:block/spruce_fusuma_doorway_top_panel"
+  },
+  "elements": []
+}

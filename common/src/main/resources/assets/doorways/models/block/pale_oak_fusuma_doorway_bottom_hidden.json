@@ -1,0 +1,7 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "doorways:block/pale_oak_fusuma_doorway_bottom_panel"
+  },
+  "elements": []
+}

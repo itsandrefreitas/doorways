@@ -1,0 +1,244 @@
+{
+  "variants": {
+    "facing=east,half=lower,hinge=left,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_front"
+    },
+    "facing=east,half=lower,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_stacked"
+    },
+    "facing=east,half=lower,hinge=left,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_back"
+    },
+    "facing=east,half=lower,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_hidden"
+    },
+    "facing=east,half=lower,hinge=right,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_back"
+    },
+    "facing=east,half=lower,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_hidden"
+    },
+    "facing=east,half=lower,hinge=right,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_front"
+    },
+    "facing=east,half=lower,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_stacked"
+    },
+    "facing=east,half=upper,hinge=left,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_front"
+    },
+    "facing=east,half=upper,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_stacked"
+    },
+    "facing=east,half=upper,hinge=left,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_back"
+    },
+    "facing=east,half=upper,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_hidden"
+    },
+    "facing=east,half=upper,hinge=right,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_back"
+    },
+    "facing=east,half=upper,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_hidden"
+    },
+    "facing=east,half=upper,hinge=right,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_front"
+    },
+    "facing=east,half=upper,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_stacked"
+    },
+    "facing=north,half=lower,hinge=left,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_front",
+      "y": 270
+    },
+    "facing=north,half=lower,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_stacked",
+      "y": 270
+    },
+    "facing=north,half=lower,hinge=left,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_back",
+      "y": 270
+    },
+    "facing=north,half=lower,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_hidden",
+      "y": 270
+    },
+    "facing=north,half=lower,hinge=right,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_back",
+      "y": 270
+    },
+    "facing=north,half=lower,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_hidden",
+      "y": 270
+    },
+    "facing=north,half=lower,hinge=right,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_front",
+      "y": 270
+    },
+    "facing=north,half=lower,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_stacked",
+      "y": 270
+    },
+    "facing=north,half=upper,hinge=left,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_front",
+      "y": 270
+    },
+    "facing=north,half=upper,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_stacked",
+      "y": 270
+    },
+    "facing=north,half=upper,hinge=left,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_back",
+      "y": 270
+    },
+    "facing=north,half=upper,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_hidden",
+      "y": 270
+    },
+    "facing=north,half=upper,hinge=right,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_back",
+      "y": 270
+    },
+    "facing=north,half=upper,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_hidden",
+      "y": 270
+    },
+    "facing=north,half=upper,hinge=right,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_front",
+      "y": 270
+    },
+    "facing=north,half=upper,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_stacked",
+      "y": 270
+    },
+    "facing=south,half=lower,hinge=left,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_front",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_stacked",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=left,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_back",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_hidden",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=right,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_back",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_hidden",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=right,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_front",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_stacked",
+      "y": 90
+    },
+    "facing=south,half=upper,hinge=left,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_front",
+      "y": 90
+    },
+    "facing=south,half=upper,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_stacked",
+      "y": 90
+    },
+    "facing=south,half=upper,hinge=left,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_back",
+      "y": 90
+    },
+    "facing=south,half=upper,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_hidden",
+      "y": 90
+    },
+    "facing=south,half=upper,hinge=right,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_back",
+      "y": 90
+    },
+    "facing=south,half=upper,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_hidden",
+      "y": 90
+    },
+    "facing=south,half=upper,hinge=right,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_front",
+      "y": 90
+    },
+    "facing=south,half=upper,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_stacked",
+      "y": 90
+    },
+    "facing=west,half=lower,hinge=left,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_front",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_stacked",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=left,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_back",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_hidden",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=right,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_back",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_hidden",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=right,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_front",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_bottom_stacked",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=left,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_front",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=left,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_stacked",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=left,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_back",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=left,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_hidden",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=right,part=0,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_back",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=right,part=0,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_hidden",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=right,part=1,swing=closed": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_front",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=right,part=1,swing=out": {
+      "model": "doorways:block/crimson_fusuma_doorway_top_stacked",
+      "y": 180
+    }
+  }
+}

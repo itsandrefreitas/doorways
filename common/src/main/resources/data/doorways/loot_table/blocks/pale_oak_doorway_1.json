@@ -18,8 +18,7 @@
               "condition": "minecraft:block_state_property",
               "block": "doorways:pale_oak_doorway_1",
               "properties": {
-                "half": "lower",
-                "part": "0"
+                "half": "lower"
               }
             }
           ]

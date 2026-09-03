@@ -34,6 +34,8 @@ public final class GeometryCheck {
         checkReleasedIsOccupiedInReverse();
         checkOriginRoundTrips();
         checkAllFourOrientationsAreRotations();
+        checkSlidingNeverMovesBlocks();
+        checkSlidingLeafParksInOneColumn();
         checkInvalidLayoutsRejected();
 
         printOffsetTables();
@@ -143,8 +145,8 @@ public final class GeometryCheck {
     private static void checkSplitIgnoresHinge() {
         for (Facing facing : Facing.values()) {
             for (int width : new int[] {2, 4}) {
-                DoorLayout left = new DoorLayout(facing, width, DoorMode.SPLIT, Hinge.LEFT);
-                DoorLayout right = new DoorLayout(facing, width, DoorMode.SPLIT, Hinge.RIGHT);
+                DoorLayout left = new DoorLayout(facing, width, DoorMode.SPLIT, Hinge.LEFT, Motion.SWING);
+                DoorLayout right = new DoorLayout(facing, width, DoorMode.SPLIT, Hinge.RIGHT, Motion.SWING);
                 for (Swing swing : Swing.values()) {
                     check(left.footprint(swing).equals(right.footprint(swing)),
                             "SPLIT " + width + " " + facing + " " + swing
@@ -281,15 +283,61 @@ public final class GeometryCheck {
         }
     }
 
+    /** A sliding door never moves a block, and so can never be blocked. */
+    private static void checkSlidingNeverMovesBlocks() {
+        forEachSlidingLayout(layout -> {
+            check(layout.footprint(Swing.CLOSED).equals(layout.footprint(Swing.OUT)),
+                    desc(layout) + ": should open without moving anything, but "
+                            + layout.footprint(Swing.CLOSED) + " -> " + layout.footprint(Swing.OUT));
+            check(!layout.movesBlocks(), desc(layout) + ": movesBlocks() should be false");
+            check(layout.newlyOccupied(Swing.CLOSED, Swing.OUT).isEmpty(),
+                    desc(layout) + ": should have no position to validate, wants "
+                            + layout.newlyOccupied(Swing.CLOSED, Swing.OUT));
+        });
+    }
+
+    /** A sliding leaf stacks into one column and leaves the others clear. */
+    private static void checkSlidingLeafParksInOneColumn() {
+        forEachSlidingLayout(layout -> {
+            int panels = 0;
+            int parked = 0;
+            for (int part = 0; part < layout.width(); part++) {
+                check(layout.panelsAt(part, Swing.CLOSED) == 1,
+                        desc(layout) + " closed: PART " + part + " should show one panel");
+
+                int open = layout.panelsAt(part, Swing.OUT);
+                panels += open;
+                if (open > 0) {
+                    parked++;
+                    check(layout.parksHere(part), desc(layout) + ": PART " + part
+                            + " holds panels but is not a parking column");
+                    check(open == DoorLayout.SLIDING_LEAF, desc(layout) + ": PART " + part
+                            + " should hold a whole leaf, holds " + open);
+                }
+            }
+            // Opening hides panels behind each other; it does not destroy or invent any.
+            check(panels == layout.width(),
+                    desc(layout) + ": " + layout.width() + " panels became " + panels);
+            check(parked == layout.width() / DoorLayout.SLIDING_LEAF,
+                    desc(layout) + ": should park one column per leaf, parked " + parked);
+        });
+    }
+
     private static void checkInvalidLayoutsRejected() {
         checkThrows(() -> DoorLayout.of(Facing.NORTH, 0, Hinge.LEFT), "width 0");
         checkThrows(() -> DoorLayout.of(Facing.NORTH, 5, Hinge.LEFT), "width 5");
-        checkThrows(() -> new DoorLayout(Facing.NORTH, 3, DoorMode.SPLIT, Hinge.LEFT),
+        checkThrows(() -> new DoorLayout(Facing.NORTH, 3, DoorMode.SPLIT, Hinge.LEFT, Motion.SWING),
                 "SPLIT with an odd width");
         checkThrows(() -> DoorLayout.of(Facing.NORTH, 2, Hinge.LEFT).closedOffset(2),
                 "PART outside the range");
         checkThrows(() -> DoorLayout.of(Facing.NORTH, 2, Hinge.LEFT).swingAxis(Swing.CLOSED),
                 "the swing axis of a closed leaf");
+        checkThrows(() -> DoorLayout.sliding(Facing.NORTH, 2, Hinge.LEFT).offset(0, Swing.BACK),
+                "a sliding leaf swinging back");
+        checkThrows(() -> DoorLayout.sliding(Facing.NORTH, 1, Hinge.LEFT),
+                "a sliding door one column wide");
+        checkThrows(() -> DoorLayout.sliding(Facing.NORTH, 3, Hinge.LEFT),
+                "a sliding door three columns wide");
     }
 
     // ---------------------------------------------------------------- report
@@ -316,6 +364,27 @@ public final class GeometryCheck {
                         : "nothing (rotates inside its own block)"));
             }
         }
+
+        System.out.println();
+        System.out.println("Sliding - offsets never change; what moves is which column holds");
+        System.out.println("the panels, so the table below counts panels rather than positions");
+        for (int width : new int[] {2, 4}) {
+            DoorLayout north = DoorLayout.sliding(Facing.NORTH, width, Hinge.LEFT);
+            System.out.println();
+            System.out.printf("  width %d - %s%n", width, north.mode());
+            System.out.println("    closed : " + panelCounts(north, Swing.CLOSED));
+            System.out.println("    open   : " + panelCounts(north, Swing.OUT));
+            System.out.println("    moves  : nothing at all (panels run behind each other)");
+        }
+    }
+
+    /** Panels per column, which is the only thing a sliding door changes. */
+    private static String panelCounts(DoorLayout layout, Swing swing) {
+        List<String> out = new ArrayList<>();
+        for (int part = 0; part < layout.width(); part++) {
+            out.add(Integer.toString(layout.panelsAt(part, swing)));
+        }
+        return String.join("   ", out);
     }
 
     /**
@@ -382,6 +451,22 @@ public final class GeometryCheck {
             for (int width = 1; width <= 4; width++) {
                 for (Hinge hinge : Hinge.values()) {
                     body.accept(DoorLayout.of(facing, width, hinge));
+                }
+            }
+        }
+    }
+
+    /**
+     * The sliding layouts, kept apart from the swinging ones.
+     *
+     * <p>They cannot share {@link #forEachLayout}: half the checks above ask about {@code BACK},
+     * which a sliding door rejects, and the rest are about a translation it never performs.
+     */
+    private static void forEachSlidingLayout(java.util.function.Consumer<DoorLayout> body) {
+        for (Facing facing : Facing.values()) {
+            for (int width : new int[] {2, 4}) {
+                for (Hinge hinge : Hinge.values()) {
+                    body.accept(DoorLayout.sliding(facing, width, hinge));
                 }
             }
         }

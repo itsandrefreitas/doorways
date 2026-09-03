@@ -1,0 +1,6 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "doorways:item/pale_oak_fusuma_doorway_2"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "doorways:block/glass_sliding_doorway_bottom_panel"
+  },
+  "elements": []
+}

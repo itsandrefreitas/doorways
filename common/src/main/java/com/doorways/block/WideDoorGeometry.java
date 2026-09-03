@@ -2,6 +2,7 @@ package com.doorways.block;
 
 import com.doorways.core.geometry.DoorLayout;
 import com.doorways.core.geometry.Facing;
+import com.doorways.core.geometry.Motion;
 import com.doorways.core.geometry.Swing;
 import com.doorways.core.geometry.Vec2i;
 import java.util.ArrayList;
@@ -116,7 +117,9 @@ public final class WideDoorGeometry {
      */
     public static Direction leafDirection(DoorLayout layout, int part, Swing swing) {
         Direction facing = toMinecraft(layout.facing());
-        if (swing == Swing.CLOSED) {
+        // A sliding leaf never turns. It stays in the wall line whatever it is doing, and what
+        // changes is which column holds it -- see DoorLayout.panelsAt.
+        if (swing == Swing.CLOSED || layout.motion() == Motion.SLIDE) {
             return facing;
         }
         return layout.pivotAtLowEnd(part) ? facing.getClockWise() : facing.getCounterClockWise();

@@ -8,7 +8,7 @@ The project started from a Portuguese specification document, kept outside this 
 
 ## Status
 
-**200 doors** across five styles.
+**226 doors** across seven styles.
 
 | Style | Materials | Widths | Doors |
 |---|---|---|---|
@@ -17,19 +17,30 @@ The project started from a Portuguese specification document, kept outside this 
 | Glass — glass throughout, iron frame | — | 1–4 | 4 |
 | Saloon — spindles under an arch, on spring hinges | 12 woods | 2, 4 | 24 |
 | Bookshelf | — | 1–4 | 4 |
+| Fusuma — papered panels that slide | 12 woods | 2, 4 | 24 |
+| Sliding glass | — | 2, 4 | 2 |
 
-Saloon doors exist only at the even widths, where the door splits into two swinging leaves, and
-only in wood. Glass and bookshelf doors have no material to vary.
+Saloon and sliding doors exist only at the even widths — one splits into two swinging leaves, the
+other is built from leaves of two panels — and the wooden ones only in wood. Glass and bookshelf
+doors have no material to vary.
 
 **Saloon doors hang on double-acting spring hinges**, which is one mechanism and three
 behaviours: they swing to either side, away from whoever pushes them; they return to their frame
-on their own; and they ignore redstone, because a spring has no latch to be held open by. Every
-other door opens one way, stays where you left it, and answers a signal. See D-36.
+on their own; and they ignore redstone, because a spring has no latch to be held open by. See
+D-36.
+
+**Sliding doors glide** rather than snapping, and they take **no cavity in the wall**: a leaf is
+two panels on two tracks, and opening runs one behind the other, so the space a door occupies
+open is the space it occupied shut. A 2-wide one leaves a doorway of 1 block, a 4-wide one of 2.
+They need a **sliding track** to craft, and they are the reason this mod has a block entity and a
+renderer at all. See D-37.
+
+Every other door opens one way, stays where you left it, and answers a signal.
 
 | Module | What it is | Status |
 |---|---|---|
-| `core` | Pure geometry. Zero Minecraft. | ✅ 17 JUnit tests + 1873 assertions |
-| `common` | Block, applied geometry, definitions | ✅ Placement, opening, redstone, oxidation |
+| `core` | Pure geometry. Zero Minecraft. | ✅ 20 JUnit tests + 2052 assertions |
+| `common` | Blocks, applied geometry, definitions, the sliding renderer | ✅ Placement, opening, redstone, oxidation, sliding |
 | `fabric` | Registration, creative tab, oxidation, datagen, GameTests | ✅ Client + dedicated server |
 | `neoforge` | Deferred registration, tab, data maps | ✅ Client + dedicated server |
 
@@ -48,13 +59,21 @@ wax from honeycomb, and are scraped back with an axe — as one door, not as loo
 
 ## How a wide door works
 
-A door is `width × 2` blocks, with no block entity. Every part reconstructs the whole from its
-own `PART`, `FACING`, `HINGE` and `SWING` state. Opening **moves blocks**: the leaf swings out of
-its frame into the space beyond, and the frame is left empty.
+A door is `width × 2` blocks. Every part reconstructs the whole from its own state — where it
+sits along the wall, which way the door faces, which end it hinges on and where the leaf is — and
+a swinging door needs no block entity to do it. Opening **moves blocks**: the leaf swings out of
+its frame into the space beyond, and the frame is left empty. A sliding door is the exception
+that proves the rule: it moves nothing, and it has a block entity for drawing alone (D-37).
 
-`SWING` has three values rather than vanilla's boolean, because a spring-hinged door can be open
-on either side and a column has to know which — otherwise it cannot work out where its siblings
-are (D-36).
+`SWING` replaced vanilla's boolean `open` because a spring-hinged door can be open on either
+side, and a column has to know which — otherwise it cannot work out where its siblings are
+(D-36).
+
+**A door only declares the properties it reads.** A 1-wide door has no column index, a door that
+opens from the middle has no hinge, a spring door records no signal, and only a sliding door
+knows whether it is in flight. That is not tidiness: those four rules took the mod from 173,568
+blockstates to 28,096 — from six times the whole of vanilla down to roughly its equal, with 226
+doors in it. The arithmetic, and why each property costs what it costs, is D-38.
 
 That single fact is the source of nearly every bug this project has had, and it is worth
 knowing before you touch anything: *a door that has moved is no longer where the world expects
@@ -63,9 +82,9 @@ it to be* — for reading redstone, for receiving neighbour updates, or for bein
 
 ## Generated assets
 
-2386 files — 200 blockstates with 192 variants each, 728 block models, 565 textures, 289
-recipes. None of it is hand-edited, and it comes from **two** generators with a deliberate
-split:
+2680 files — 226 blockstates holding 13,248 variants between them, 832 block models, 618
+textures, 316 recipes, 226 loot tables. None of it is hand-edited, and it comes from **two**
+generators with a deliberate split:
 
 | Generator | Owns | Why |
 |---|---|---|
@@ -86,8 +105,14 @@ python tools/check_assets.py .
 
 It verifies that every door has a blockstate, loot table, item definition, model, texture and
 translation, that every model a blockstate points at exists, that every texture a model asks for
-exists, and that no recipe produces something unregistered. It exits non-zero on the first
-inconsistency.
+exists, that every door belongs to exactly one tool tag, that no recipe produces something
+unregistered, and that **no loot table names a property its door does not have**. It exits
+non-zero on the first inconsistency.
+
+That last rule was written the day it was needed. When the column index became one property per
+width, the 44 one-column doors kept a condition naming the property they had just lost; the whole
+table then failed to parse, and those doors silently dropped nothing at all. Every other check
+passed, because everything else about them was right.
 
 The texture half reads the reference out of the model rather than comparing directory listings
 by name. Matching names was the simpler rule and it was wrong: a door has two models per leaf --
@@ -100,11 +125,13 @@ straight out of the client jar), so each wood's tone matches the material it is 
 ## Layout
 
 ```
-core/       pure Java — geometry, testable without the game
-common/     vanilla API — WideDoorBlock, WeatheringWideDoorBlock, DoorVariant
-fabric/     registration, creative tab, oxidation, datagen, GameTests
-neoforge/   deferred registration, entrypoint, copper data map check
-tools/      texture and asset generator (Python, no dependencies)
+core/            pure Java — geometry, testable without the game
+common/block/    WideDoorBlock and the three subclasses, DoorVariant, DoorStyle
+common/client/   the sliding renderer — the only client code outside the loaders
+common/test/     the GameTest scenarios, in vanilla API so both loaders could run them
+fabric/          registration, creative tab, oxidation, datagen, GameTests
+neoforge/        deferred registration, entrypoint, copper data map check
+tools/           texture and asset generator (Python, no dependencies)
 ```
 
 Since 26.1 Minecraft is **not obfuscated**, so there are no mappings and no remapping: both
@@ -129,17 +156,18 @@ Three layers, and it is worth understanding what each one can and cannot catch.
 
 | Where | What | How to run |
 |---|---|---|
-| `core/src/test` | 17 JUnit tests | `gradlew :core:test` |
-| `core/src/verify` | `GeometryCheck`, 1873 assertions, **zero dependencies** | `gradlew :core:geometryCheck` |
-| `fabric` GameTests | 10 scenarios in a real world | `gradlew :fabric:runGameTest` |
+| `core/src/test` | 20 JUnit tests | `gradlew :core:test` |
+| `core/src/verify` | `GeometryCheck`, 2052 assertions, **zero dependencies** | `gradlew :core:geometryCheck` |
+| `fabric` GameTests | 14 scenarios in a real world | `gradlew :fabric:runGameTest` |
 
-**The 1873 pure-geometry assertions never caught a single real bug.** That is not a criticism of
+**The pure-geometry assertions have never caught a single real bug.** That is not a criticism of
 them — `DoorLayout` is a pure function of coordinates and was never wrong. Every bug lived at the
-boundary with the world, which is why the GameTests exist and why each of the ten guards a bug
-that actually happened. See D-33.
+boundary with the world, which is why the GameTests exist and why each of the fourteen guards a
+bug that actually happened. See D-33.
 
-Three of them were written after the fact: the two-way saloon door shipped with defects that no
-assertion caught and that were found by standing in front of the door and looking at it (D-36).
+Several were written after the fact: the two-way saloon door shipped with defects that no
+assertion caught and that were found by standing in front of the door and looking at it (D-36),
+and the drop test was written the day 44 doors were found dropping nothing.
 
 `GeometryCheck` lives in its own source set on purpose: it is a program with `main()`, not a
 JUnit test. It runs with nothing but a JDK — no Gradle, no Minecraft:
@@ -170,6 +198,12 @@ JDK 25 does not — it is not a firewall issue, it is the old combination. Alway
 The warning `WARNING: A restricted method in java.lang.System has been called` comes from
 Gradle's own `native-platform` on Java 25 and is harmless.
 
+`:neoforge:runClient` stutters badly here — `Can't keep up! Running N ticks behind` — and doors
+that slide or swing shut look broken because of it. It is the development launcher, not the mod:
+the same build installed in a real NeoForge profile behaves exactly like the Fabric one. Test
+NeoForge changes in an installed profile before believing a defect that only appears in
+`runClient`.
+
 Do not add the `foojay-resolver-convention` plugin. It references a `JvmVendorSpec` field
 removed in Gradle 9.5 and breaks every task that requests a toolchain. See D-30.
 
@@ -195,13 +229,17 @@ Read [DECISIONS.md](DECISIONS.md) first. It is not a changelog — it records *w
 non-obvious choice was made, including the ones that were wrong first. Several things in this
 codebase look odd until you know the reason:
 
-- `PART` ranges 0..3 on every door, even width 1 (D-22)
+- a door is built through `WideDoorBlock.sized(width, mode, ...)` and throws if it is not, because
+  the state definition needs both before the constructor can hold either (D-38)
 - `POWERED` is deliberately absent from every blockstate JSON (D-24)
 - opening and closing runs behind a thread-local transaction guard (D-29)
 - copper conversions are detected in `onPlace`, not intercepted at the item (D-31)
 - saloon doors are built from stacked boxes rather than one, so the arch has a silhouette (D-35)
 - every leaf has two models, in its frame and swung out of it, differing only in mirrored UVs (D-36)
 - a leaf's rotation comes from its pivot, never from the direction it swung (D-36)
+- a sliding door's block entity holds nothing the game needs — remove it and doors snap instead of
+  gliding, and nothing else changes (D-37)
+- the sliding glass door is drawn by its renderer even standing still, and no other door is (D-37)
 
 ## License
 

@@ -30,24 +30,59 @@ import java.util.Set;
  * The hinge column stays where it was; the rest unfold perpendicular to the wall, at whatever
  * distance they were from the hinge. Only the sign of the second term tells the two directions
  * apart, which is why one formula still covers both.
+ *
+ * <h2>Sliding</h2>
+ * Under {@link Motion#SLIDE} none of that applies and the formula collapses: the columns do not
+ * move at all. A sliding leaf is two panels on two tracks, and opening runs one behind the
+ * other, so the open footprint is the closed one. What changes is {@link #panelsAt}, which puts
+ * the whole leaf in the column it parks in and leaves the rest empty.
  */
-public record DoorLayout(Facing facing, int width, DoorMode mode, Hinge hinge) {
+public record DoorLayout(Facing facing, int width, DoorMode mode, Hinge hinge, Motion motion) {
 
     public static final int MIN_WIDTH = 1;
     public static final int MAX_WIDTH = 4;
 
+    /**
+     * How many panels a sliding leaf has, always.
+     *
+     * <p>Two, because one panel has nothing to hide behind and three would need a third track.
+     * It is this number that decides which widths can slide at all: a single leaf must be two
+     * columns wide, and a split door must be four.
+     */
+    public static final int SLIDING_LEAF = 2;
+
     public DoorLayout {
         if (width < MIN_WIDTH || width > MAX_WIDTH) {
             throw new IllegalArgumentException("width must be between 1 and 4, was " + width);
+        }
+        // Before the SPLIT rule, so that a sliding door of the wrong width is told the reason
+        // that actually applies to it rather than one that happens to catch it first.
+        if (motion == Motion.SLIDE) {
+            int panels = mode == DoorMode.SINGLE ? width : width / 2;
+            if (panels != SLIDING_LEAF) {
+                throw new IllegalArgumentException("SLIDE requires leaves of exactly "
+                        + SLIDING_LEAF + " panels, this one has " + panels);
+            }
         }
         if (mode == DoorMode.SPLIT && width % 2 != 0) {
             throw new IllegalArgumentException("SPLIT requires an even width, was " + width);
         }
     }
 
-    /** A layout using the default mode for that width (the table in §2). */
+    /** A swinging layout using the default mode for that width (the table in §2). */
     public static DoorLayout of(Facing facing, int width, Hinge hinge) {
-        return new DoorLayout(facing, width, DoorMode.defaultFor(width), hinge);
+        return new DoorLayout(facing, width, DoorMode.defaultFor(width), hinge, Motion.SWING);
+    }
+
+    /**
+     * A sliding layout, in the only mode its width allows.
+     *
+     * <p>The mode is not a choice here, it follows from {@link #SLIDING_LEAF}: two columns make
+     * one leaf, four make two. Every other width is rejected by the constructor.
+     */
+    public static DoorLayout sliding(Facing facing, int width, Hinge hinge) {
+        DoorMode mode = width == SLIDING_LEAF ? DoorMode.SINGLE : DoorMode.SPLIT;
+        return new DoorLayout(facing, width, mode, hinge, Motion.SLIDE);
     }
 
     /** The wall axis: the direction in which the {@code PART} index grows. */
@@ -117,9 +152,44 @@ public record DoorLayout(Facing facing, int width, DoorMode mode, Hinge hinge) {
     }
 
     public Vec2i openOffset(int part, Swing swing) {
+        if (motion == Motion.SLIDE) {
+            if (swing == Swing.BACK) {
+                throw new IllegalArgumentException("a sliding leaf has only one open position");
+            }
+            // Nothing moves. The panels run behind each other inside the columns the door
+            // already occupies, so the open footprint is the closed one.
+            return closedOffset(part);
+        }
         int pivot = hingePart(part);
         return wallAxis().vec().times(pivot)
                 .plus(swingAxis(swing).vec().times(Math.abs(part - pivot)));
+    }
+
+    /**
+     * Whether this column is where its leaf ends up once a sliding door is open.
+     *
+     * <p>It is the same column a swinging leaf would pivot about, which is why this needs no
+     * geometry of its own: a leaf turns about its outer end, and it also parks at its outer end.
+     * Under {@link DoorMode#SINGLE} that end is chosen by {@link #hinge}, which is the only job
+     * the hinge has on a door that has no hinge.
+     */
+    public boolean parksHere(int part) {
+        return part == hingePart(part);
+    }
+
+    /**
+     * How many panels this column shows.
+     *
+     * <p>One, always, for a swinging door: its columns move but each keeps its own panel. A
+     * sliding door stacks a whole leaf into the column it parks in and leaves the others empty,
+     * which is what opens the doorway without anything leaving it.
+     */
+    public int panelsAt(int part, Swing swing) {
+        requirePart(part);
+        if (motion == Motion.SWING || swing == Swing.CLOSED) {
+            return 1;
+        }
+        return parksHere(part) ? leafEnd(part) - leafStart(part) + 1 : 0;
     }
 
     public Vec2i offset(int part, Swing swing) {

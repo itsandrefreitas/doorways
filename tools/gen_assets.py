@@ -16,15 +16,18 @@ import zipfile
 import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from materials import (MATERIALS, STYLES, block_name, display_name, model_stem,
-                       oxidation_chain, waxable_pairs)
+from materials import (COPPER_IDS, GLASS_ID, IRON_ID, MATERIALS, SLIDING, STYLES, block_name,
+                       display_name, model_stem, oxidation_chain, waxable_pairs)
 from palettes import palette_from, read_png
 
 MOD = "doorways"
 HINGE = "iron_hinge"
+TRACK = "sliding_track"
 ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
 ASSETS = os.path.join(ROOT, "common", "src", "main", "resources", "assets", MOD)
 DATA = os.path.join(ROOT, "common", "src", "main", "resources", "data", MOD)
+# Tags live under minecraft's own namespace: a datapack that names a vanilla tag adds to it.
+VANILLA_DATA = os.path.join(ROOT, "common", "src", "main", "resources", "data", "minecraft")
 
 CLIENT_JAR = os.path.expanduser(
     "~/.gradle/caches/neoformruntime/artifacts/minecraft_26.2_client.jar")
@@ -153,6 +156,11 @@ SALOON_SILL = 11
 LEAF_FLUSH = (0, 3)
 LEAF_CENTRED = (6.5, 9.5)
 
+# The far track of a sliding door, immediately behind the near one. The panel that stays put
+# runs on LEAF_FLUSH and the one that hides behind it runs here, which is why the two are
+# visibly offset even with the door shut. WideDoorBlock.BACK_TRACK_SHAPES is the collision side.
+LEAF_BACK = (3, 6)
+
 # The arch peaks at row 2 in the middle of a column and falls to row 6 at its edges.
 SALOON_CROWN = 2
 SALOON_SPRING = 6
@@ -230,6 +238,98 @@ def saloon_strap(px, side, half):
         head, foot = saloon_extent(half, x)
         for y in range(head, foot + 1):
             px[y][x] = IRON_HI if y % 5 == 0 else (IRON if x in (1, W - 2) else IRON_LO)
+
+
+# A fusuma is a clear field in a lacquered border, and the field is the whole point -- it is
+# what gets painted. No lattice: that is a shoji, and a lattice fights any picture put behind it.
+FUSUMA_BORDER = 1
+
+# The pull -- the hikite -- sits a little below the middle of the door, which lands it in the top
+# rows of the lower half.
+FUSUMA_PULL_X = 3
+FUSUMA_PULL_Y = 3
+
+
+def fusuma_leaf(pal, paper, half):
+    """A plain paper panel in a thin lacquered border, with a round pull.
+
+    The border runs down both edges of both halves and closes the outer end of each -- the top of
+    the upper half, the bottom of the lower -- so the two stack into one framed panel with an
+    unbroken field between them.
+    """
+    px = blank()
+    for y in range(H):
+        for x in range(W):
+            px[y][x] = paper["WOOD_HI"]
+
+    # A faint warmth across the field, so a whole wall of them is not a flat sheet of white.
+    for y in range(H):
+        for x in range(W):
+            if (x * 5 + y * 3) % 17 == 0:
+                px[y][x] = paper["WOOD"]
+
+    for x in range(FUSUMA_BORDER):
+        for y in range(H):
+            px[y][x] = pal["GROOVE"]
+            px[y][W - 1 - x] = pal["GROOVE"]
+    edge = range(H - FUSUMA_BORDER, H) if half == "bottom" else range(FUSUMA_BORDER)
+    for y in edge:
+        for x in range(W):
+            px[y][x] = pal["GROOVE"]
+
+    if half == "bottom":
+        fusuma_pull(px, pal)
+    return px
+
+
+def fusuma_pull(px, pal):
+    """The hikite: a small recessed ring with a metal centre."""
+    ring = ((0, 1), (1, 0), (1, 2), (2, 1))
+    for dx, dy in ring:
+        px[FUSUMA_PULL_Y + dy][FUSUMA_PULL_X + dx] = pal["GROOVE"]
+    px[FUSUMA_PULL_Y + 1][FUSUMA_PULL_X + 1] = IRON_HI
+
+
+def sliding_glass_leaf(half):
+    """A sheet of glass in a slim iron frame.
+
+    Iron rather than wood, for the reason the full-glass door already uses it: a fixed timber
+    tone imposes itself on whatever it is built into, and grey does not. This door has no
+    material of its own, so its frame has to be the one colour that sits quietly in any wall.
+    """
+    px = blank()
+    for y in range(H):
+        for x in range(W):
+            px[y][x] = GLASS
+    for y in range(2, 14):
+        for x in range(1, 15):
+            if (x + y) % 7 == 0:
+                px[y][x] = GLASS_HI
+
+    for y in range(H):
+        px[y][0] = IRON_LO
+        px[y][W - 1] = IRON_LO
+        if y % 6 == 0:
+            px[y][0] = IRON_HI
+            px[y][W - 1] = IRON_HI
+    edge = range(H - 2, H) if half == "bottom" else range(2)
+    for y in edge:
+        for x in range(W):
+            px[y][x] = IRON if x % 5 else IRON_LO
+    return px
+
+
+def hidden_model(face_tex):
+    """A panel that is elsewhere: no geometry at all.
+
+    It keeps the particle texture even so. The block is still there and can still be broken, and
+    without one the break particles would be the missing-texture chequer.
+    """
+    return {
+        "ambientocclusion": False,
+        "textures": {"particle": face_tex},
+        "elements": [],
+    }
 
 
 def bookshelf_leaf(vanilla, role):
@@ -325,6 +425,23 @@ def hinge_texture():
     return px
 
 
+def track_texture(pal):
+    """A length of grooved rail, drawn on the diagonal so it reads as long rather than square.
+
+    The counterpart to the hinge, and made of wood for the same reason the doors that use it
+    are: a fusuma runs in a groove cut into the sill and the lintel, not on a steel rail.
+    """
+    px = blank()
+    for i in range(2, 14):
+        for d, tone in ((-1, "WOOD_HI"), (0, "WOOD"), (1, "WOOD"), (2, "WOOD_LO")):
+            y = i + d
+            if 0 <= y < H:
+                px[y][i] = pal[tone]
+        # The groove itself: a dark line down the middle of the board.
+        px[i][i] = pal["GROOVE"]
+    return px
+
+
 # Door geometry does not belong in this file. Blockstates derive from DoorLayout and are
 # generated by DoorwayBlockStateProvider, so that the rule has a single definition.
 # See DECISIONS.md, D-34.
@@ -367,10 +484,9 @@ def mirror_faces(faces, mirrored):
     return out
 
 
-def leaf_model(face_tex, mirrored=False):
-    """Geometry copied from vanilla door_bottom_left: a 3/16 slice on the X axis, with the
-    wide faces to west/east. Mirrored, it is vanilla's door_bottom_left_open."""
-    faces = {
+def panel_faces():
+    """The six faces of a full-height leaf, with vanilla door_bottom_left's UVs."""
+    return {
         "west": {"texture": "#face", "uv": [0, 0, 16, 16]},
         "east": {"texture": "#face", "uv": [16, 0, 0, 16]},
         "north": {"texture": "#face", "uv": [3, 0, 0, 16]},
@@ -378,13 +494,42 @@ def leaf_model(face_tex, mirrored=False):
         "up": {"texture": "#face", "uv": [0, 0, 3, 16], "rotation": 270},
         "down": {"texture": "#face", "uv": [16, 13, 0, 16], "rotation": 90},
     }
+
+
+def leaf_model(face_tex, mirrored=False):
+    """Geometry copied from vanilla door_bottom_left: a 3/16 slice on the X axis, with the
+    wide faces to west/east. Mirrored, it is vanilla's door_bottom_left_open."""
     return {
         "ambientocclusion": False,
         "textures": {"particle": face_tex, "face": face_tex},
         "elements": [{
             "from": [0, 0, 0], "to": [3, 16, 16],
-            "faces": mirror_faces(faces, mirrored),
+            "faces": mirror_faces(panel_faces(), mirrored),
         }],
+    }
+
+
+def sliding_model(face_tex, spans):
+    """One sliding panel, or a whole leaf stacked on both its tracks.
+
+    Where two panels meet, neither draws the face between them -- they are coincident planes,
+    and it is the same reason the vanilla door template omits the faces where its halves join.
+
+    No mirroring here, and none needed: a sliding panel never turns, so there is no end of the
+    texture that could come to face the wrong way.
+    """
+    elements = []
+    for i, span in enumerate(spans):
+        faces = panel_faces()
+        if i > 0:
+            del faces["west"]
+        if i < len(spans) - 1:
+            del faces["east"]
+        elements.append({"from": [span[0], 0, 0], "to": [span[1], 16, 16], "faces": faces})
+    return {
+        "ambientocclusion": False,
+        "textures": {"particle": face_tex, "face": face_tex},
+        "elements": elements,
     }
 
 
@@ -499,7 +644,9 @@ def scale(px, factor):
 # ---------------------------------------------------------------- writing
 def main():
     jar = zipfile.ZipFile(CLIENT_JAR)
-    lang = {"itemGroup.doorways": "Doorways", f"item.{MOD}.{HINGE}": "Iron Hinge"}
+    lang = {"itemGroup.doorways": "Doorways",
+            f"item.{MOD}.{HINGE}": "Iron Hinge",
+            f"item.{MOD}.{TRACK}": "Sliding Track"}
     n = 0
 
     palettes, faces = {}, {}
@@ -509,6 +656,10 @@ def main():
         # Kept whole for the styles that copy the vanilla face rather than redraw it.
         _, _, flat = read_png(data)
         faces[material] = [flat[row * W:(row + 1) * W] for row in range(H)]
+
+    # A shoji's panel is paper, and the rule here is that colours are sampled rather than chosen
+    # (D-02). Vanilla has no paper block, so the item texture is what there is to sample.
+    paper = palette_from(jar.read("assets/minecraft/textures/item/paper.png"))
 
     # A glazed door's lower half is the solid model, so the same stem comes up twice. Written
     # once, on whichever style reaches it first.
@@ -520,6 +671,36 @@ def main():
             vanilla = faces[material]
 
             for half in ("bottom", "top"):
+                # A sliding panel is framed all round and self-contained, so the left/mid/right
+                # roles collapse into one. What its four models say instead is which track the
+                # panel is on and whether it is parked -- there is no swung twin.
+                if style in SLIDING:
+                    stem = model_stem(material, style, half, "panel")
+                    # The glass shoji has no wood of its own -- its material is the glass in the
+                    # panel -- but its frame is wooden, and its recipe takes any planks. Oak is
+                    # what "any planks" looks like; letting it inherit the glass palette gave it
+                    # a blue frame, which the recipe flatly contradicts.
+                    glass = style == "sliding_glass"
+                    write_png(os.path.join(ASSETS, "textures", "block", stem + ".png"),
+                              sliding_glass_leaf(half) if glass
+                              else fusuma_leaf(pal, paper, half))
+                    face = f"{MOD}:block/{stem}"
+                    n += 1
+                    # Four models. A door at rest is an ordinary block and draws itself from
+                    # one of these; only while a panel is actually travelling does the renderer
+                    # take over. That is what keeps a sliding door visible past 64 blocks, which
+                    # is as far as a block entity renderer reaches.
+                    for role, model in (
+                            ("front", sliding_model(face, (LEAF_FLUSH,))),
+                            ("back", sliding_model(face, (LEAF_BACK,))),
+                            ("stacked", sliding_model(face, (LEAF_FLUSH, LEAF_BACK))),
+                            ("hidden", hidden_model(face))):
+                        write_json(os.path.join(ASSETS, "models", "block",
+                                                model_stem(material, style, half, role) + ".json"),
+                                   model)
+                        n += 1
+                    continue
+
                 for role in ("single", "left", "mid", "right"):
                     stem = model_stem(material, style, half, role)
                     if stem in written:
@@ -556,7 +737,7 @@ def main():
                            {"parent": "item/generated",
                             "textures": {"layer0": f"{MOD}:item/{block}"}})
                 write_json(os.path.join(DATA, "loot_table", "blocks", block + ".json"),
-                           loot_table(block))
+                           loot_table(block, width))
                 n += 3
 
             n += write_recipes(material, craft, style, widths)
@@ -565,6 +746,8 @@ def main():
     icon = scale(mod_icon(palettes["oak"]), 8)
     write_png_sized(os.path.join(ASSETS, "icon.png"), icon)
     n += 1
+
+    n += write_mineable_tags()
 
     # the hinge item
     write_png(os.path.join(ASSETS, "textures", "item", HINGE + ".png"), hinge_texture())
@@ -578,6 +761,24 @@ def main():
         "key": {"I": "minecraft:iron_ingot", "n": "minecraft:iron_nugget"},
         "pattern": ["In", "nI"],
         "result": {"count": 2, "id": f"{MOD}:{HINGE}"},
+    })
+    n += 4
+
+    # the sliding track: what a hinge is to the doors that swing
+    write_png(os.path.join(ASSETS, "textures", "item", TRACK + ".png"),
+              track_texture(palettes["oak"]))
+    write_json(os.path.join(ASSETS, "models", "item", TRACK + ".json"),
+               {"parent": "item/generated", "textures": {"layer0": f"{MOD}:item/{TRACK}"}})
+    write_json(os.path.join(ASSETS, "items", TRACK + ".json"),
+               {"model": {"type": "minecraft:model", "model": f"{MOD}:item/{TRACK}"}})
+    # "L s L" is the one row of planks and sticks vanilla leaves free: LLL is a slab, LL is a
+    # pressure plate, and LsL only exists doubled, as a fence.
+    write_json(os.path.join(DATA, "recipe", TRACK + ".json"), {
+        "type": "minecraft:crafting_shaped",
+        "category": "misc",
+        "key": {"L": "#minecraft:planks", "s": "minecraft:stick"},
+        "pattern": ["LsL"],
+        "result": {"count": 4, "id": f"{MOD}:{TRACK}"},
     })
     # Waxing at the bench, as well as honeycomb in hand -- vanilla offers both routes.
     for bare, waxed in waxable_pairs():
@@ -601,10 +802,15 @@ def main():
     print(f"{n} files, {len(MATERIALS)} materials, {len(STYLES)} styles, {doors} doors")
 
 
-def loot_table(block):
+def loot_table(block, width):
     """Only the anchor (lower half, column 0) drops anything: this prevents duplication when
     an explosion catches several columns. The same trick vanilla oak_door uses, widened to
-    cover PART."""
+    cover PART.
+
+    A 1-wide door has no `part` property to name (D-38), and naming one it does not have makes
+    the whole table fail to parse -- which means the door drops nothing at all. With one column
+    there is nothing to disambiguate anyway: the lower half is the anchor."""
+    anchor = {"half": "lower"} if width == 1 else {"half": "lower", "part": "0"}
     return {
         "type": "minecraft:block",
         "random_sequence": f"{MOD}:blocks/{block}",
@@ -617,7 +823,7 @@ def loot_table(block):
                 "conditions": [{
                     "condition": "minecraft:block_state_property",
                     "block": f"{MOD}:{block}",
-                    "properties": {"half": "lower", "part": "0"},
+                    "properties": anchor,
                 }],
             }],
         }],
@@ -655,6 +861,16 @@ def write_neoforge_data_maps():
     return 2
 
 
+# How many doors of the base width one batch makes.
+#
+# Four for the styles that run from width 1 to 4, where the ladder needs a batch of narrow doors
+# to reach the wide ones. Two for the styles that exist only at 2 and 4: there, two of the base
+# join into exactly one of the widest, so a batch is one wide door or two narrow ones. Making
+# four would give two of the widest per batch, which is more door than a batch should buy.
+BASE_YIELD = {(2, 4): 2}
+DEFAULT_YIELD = 4
+
+
 # How each set of widths is built up from the smallest one. The 4-wide recipe mirrors the
 # mechanism: §2.3 defines it as two rigid leaves of half the width.
 LADDER = {
@@ -671,7 +887,39 @@ def body_ingredient(material, craft, style):
     """
     if style == "saloon":
         return f"minecraft:{material}_planks"
+    # A shoji is a wooden frame around a panel. The glass one has no wood of its own, so its
+    # frame takes any planks rather than picking one arbitrarily.
+    if style in SLIDING:
+        return "#minecraft:planks" if style == "sliding_glass" else f"minecraft:{material}_planks"
     return craft
+
+
+# The materials mined with a pickaxe rather than an axe. Everything else here is wood, or
+# close enough to it that vanilla treats it as wood.
+METAL_IDS = {IRON_ID, GLASS_ID} | COPPER_IDS
+
+
+def write_mineable_tags():
+    """Puts every door in the tag for the tool that should break it.
+
+    Without this a door belongs to no tool at all, and an axe gives no bonus on a wooden one --
+    which does not change its hardness but does make it markedly slower to break than the vanilla
+    door beside it. That was the symptom; the missing tag was the cause.
+
+    These are written into minecraft's own namespace on purpose. A tag file there adds to the
+    vanilla one rather than replacing it, which is how a datapack joins an existing set.
+    """
+    axe, pickaxe = [], []
+    for style, (materials, widths) in STYLES.items():
+        for material, label, texture, craft in materials:
+            for width in widths:
+                name = f"{MOD}:{block_name(material, width, style)}"
+                (pickaxe if material in METAL_IDS else axe).append(name)
+
+    for tool, values in (("axe", axe), ("pickaxe", pickaxe)):
+        write_json(os.path.join(VANILLA_DATA, "tags", "block", "mineable", tool + ".json"),
+                   {"values": sorted(values)})
+    return 2
 
 
 def write_recipes(material, craft, style, widths):
@@ -709,6 +957,36 @@ def write_recipes(material, craft, style, widths):
                 })
         return n
 
+    if style in SLIDING:
+        # The recipe draws the door: the lintel above, the panel across the middle, the sill
+        # below. No iron anywhere -- a shoji has neither hinge nor metal track, which is the one
+        # place in this mod where the Iron Hinge is not the starting point.
+        base = widths[0]
+        glass = style == "sliding_glass"
+        recipe(named(base), {
+            "type": "minecraft:crafting_shaped",
+            "category": "building",
+            # The track along the head, the panel across the middle, the frame at the sill --
+            # the recipe draws the door. Two columns rather than three: a sliding door is two
+            # panels, and the grid may as well say so.
+            "key": {"T": f"{MOD}:{TRACK}",
+                    "P": "minecraft:glass" if glass else "minecraft:paper",
+                    "F": "minecraft:iron_ingot" if glass
+                         else body_ingredient(material, craft, style)},
+            "pattern": ["TT", "PP", "FF"],
+            "result": {"count": BASE_YIELD.get(tuple(widths), DEFAULT_YIELD),
+                       "id": f"{MOD}:{named(base)}"},
+        })
+        for width, part, pattern in LADDER[tuple(widths)]:
+            recipe(named(width), {
+                "type": "minecraft:crafting_shaped",
+                "category": "building",
+                "key": {"D": f"{MOD}:{named(part)}"},
+                "pattern": pattern,
+                "result": {"count": 1, "id": f"{MOD}:{named(width)}"},
+            })
+        return n
+
     ingredient = body_ingredient(material, craft, style)
     base = widths[0]
 
@@ -729,7 +1007,8 @@ def write_recipes(material, craft, style, widths):
             "category": "building",
             "key": key,
             "pattern": ["LLN", "LLH", "LLN"] if spring else ["LL ", "LLH", "LL "],
-            "result": {"count": 4, "id": f"{MOD}:{named(base)}"},
+            "result": {"count": BASE_YIELD.get(tuple(widths), DEFAULT_YIELD),
+                       "id": f"{MOD}:{named(base)}"},
         })
 
     for width, part, pattern in LADDER[tuple(widths)]:

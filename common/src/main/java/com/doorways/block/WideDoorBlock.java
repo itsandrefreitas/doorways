@@ -10,6 +10,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -25,8 +26,11 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
@@ -58,7 +62,7 @@ import org.jspecify.annotations.Nullable;
  * <p>The structure uses no block entity: any part reconstructs the origin from its own
  * {@code PART}, {@code FACING}, {@code HINGE} and {@code SWING} (§3).
  */
-public class WideDoorBlock extends Block {
+public class WideDoorBlock extends Block implements EntityBlock {
 
     public static final MapCodec<WideDoorBlock> CODEC = RecordCodecBuilder.mapCodec(
         i -> i.group(
@@ -75,26 +79,32 @@ public class WideDoorBlock extends Block {
                         .forGetter(b -> b.style),
                 BlockSetType.CODEC.fieldOf("block_set_type").forGetter(b -> b.type),
                 propertiesCodec())
-            .apply(i, WideDoorBlock::new));
+            .apply(i, (width, mode, style, type, properties) ->
+                    sized(width, mode, () ->
+                            new WideDoorBlock(width, mode, style, type, properties))));
 
     public static final EnumProperty<Direction> FACING = HorizontalDirectionalBlock.FACING;
     public static final EnumProperty<DoubleBlockHalf> HALF = BlockStateProperties.DOUBLE_BLOCK_HALF;
     public static final EnumProperty<DoorHingeSide> HINGE = BlockStateProperties.DOOR_HINGE;
 
     /**
-     * Where the leaf sits: in its frame, or swung to one side of it.
+     * Where the leaf sits: in its frame, or swung out of it.
      *
-     * <p>Three values rather than vanilla's boolean {@code open}, because a door on a spring
-     * hinge can be open on either side and every part has to know which. With no block entity,
-     * a column locates its siblings by subtracting its own offset from its own position (§3) --
-     * and that offset depends on the direction it swung. A part that could not tell the two
-     * apart would not find the rest of its door.
+     * <p>Two values, because that is all a door on an ordinary hinge can be. A column locates
+     * its siblings by subtracting its own offset from its own position (§3), and that offset
+     * depends on where the leaf is -- so every part has to carry this, and no part may carry a
+     * value it can never hold.
      *
-     * <p>It costs the fifth and last slot a {@code PropertyDispatch} can hold, which is why
+     * <p>{@link SpringDoorBlock} declares the same property with a third value, {@code BACK}.
+     * Declaring it here instead put a state on all 226 doors to serve the 24 that swing both
+     * ways -- 29,184 blockstates for a value the other 202 could never reach.
+     *
+     * <p>Read it through {@link #swingOf}, which asks the block which of the two it declares.
+     * It costs the fifth and last slot a {@code PropertyDispatch} can hold, which is why
      * {@code POWERED} could never have joined it in the blockstate files (D-24).
      */
     public static final EnumProperty<DoorSwing> SWING =
-            EnumProperty.create("swing", DoorSwing.class);
+            EnumProperty.create("swing", DoorSwing.class, DoorSwing.CLOSED, DoorSwing.OUT);
 
     /**
      * Whether any part of the structure is receiving a redstone signal (D-24).
@@ -105,13 +115,69 @@ public class WideDoorBlock extends Block {
      */
     public static final BooleanProperty POWERED = BlockStateProperties.POWERED;
 
+    /** How long a panel takes to travel. The renderer interpolates over exactly this. */
+    public static final int SLIDE_TICKS = 6;
+
     /**
-     * The column's horizontal index. Fixed at 0..3 for every width:
-     * {@code createBlockStateDefinition} runs from {@link Block}'s constructor, before the
-     * subclass fields exist, so the range cannot depend on the instance (DECISIONS.md, D-22).
+     * How long the flag is held, which is deliberately longer than the travel.
+     *
+     * <p>The client starts its animation when the block update reaches it, which is never quite
+     * when the server sent it. Clearing the flag at the exact tick the travel ends would hand
+     * the drawing back while the panel was still a few pixels short, and it would jump the rest
+     * of the way. Two ticks of slack cost nothing and remove the jump.
      */
-    public static final IntegerProperty PART =
-            IntegerProperty.create("part", 0, DoorLayout.MAX_WIDTH - 1);
+    private static final int SLIDE_HOLD_TICKS = SLIDE_TICKS + 2;
+
+    /**
+     * The column's horizontal index, one property per width.
+     *
+     * <p>Indexed by width, and null at width 1: a door with one column has no index to keep, and
+     * {@code IntegerProperty} rejects a range of one value anyway.
+     *
+     * <p>This was a single 0..3 property on every door (D-22), because
+     * {@code createBlockStateDefinition} runs from {@link Block}'s constructor, before any field
+     * of ours exists. It cost 22,528 blockstates in columns that could never be occupied: a
+     * width-1 door carried three unreachable states for every real one. See {@link #sized}.
+     */
+    private static final IntegerProperty[] PARTS = {
+            null, null,
+            IntegerProperty.create("part", 0, 1),
+            IntegerProperty.create("part", 0, 2),
+            IntegerProperty.create("part", 0, 3),
+    };
+
+    /** What a door needs to know about itself before its constructor has run. */
+    private record Shape(int width, DoorMode mode) {}
+
+    /**
+     * The shape of the door being built, for as long as its constructor runs.
+     *
+     * <p>A handover, and not a pretty one -- but the alternative is worse. The state definition
+     * decides which properties a door declares, and is asked for it before the block can hold a
+     * width or a mode, so the only other route is a class per shape <b>per family</b>: twelve
+     * today, and four more for every kind of door added after.
+     *
+     * <p>It is safe where it is used and loud where it is not. Registration runs on one thread,
+     * {@link #sized} sets and clears it around a single synchronous construction, and
+     * {@code createBlockStateDefinition} throws outright if asked without one. A door built by
+     * any other path fails at once instead of quietly taking the wrong columns.
+     */
+    private static final ThreadLocal<Shape> BUILDING = new ThreadLocal<>();
+
+    /**
+     * Builds a door, telling the class its shape before the constructor is asked for it.
+     *
+     * <p>Every door comes through here. Nothing else may call {@code new} on this class or any
+     * of its subclasses.
+     */
+    public static <T extends Block> T sized(int width, DoorMode mode, Supplier<T> factory) {
+        BUILDING.set(new Shape(width, mode));
+        try {
+            return factory.get();
+        } finally {
+            BUILDING.remove();
+        }
+    }
 
     /** Leaf thickness, the same as a vanilla door: 3/16 of a block, flush against one face. */
     private static final Map<Direction, VoxelShape> LEAF_SHAPES =
@@ -133,6 +199,20 @@ public class WideDoorBlock extends Block {
      */
     private static final Map<Direction, VoxelShape> CENTRED_LEAF_SHAPES =
             Shapes.rotateHorizontal(Block.boxZ(16.0, 6.5, 9.5));
+
+    /**
+     * The far track of a sliding door, three pixels behind {@link #LEAF_SHAPES}.
+     *
+     * <p>A sliding leaf is two panels on two tracks. The panel that stays put runs on the near
+     * track; the one that hides behind it runs on this one. The two are visibly offset even with
+     * the door shut, which is what tells you at a glance that it slides rather than swings.
+     */
+    private static final Map<Direction, VoxelShape> BACK_TRACK_SHAPES =
+            Shapes.rotateHorizontal(Block.boxZ(16.0, 10.0, 13.0));
+
+    /** Both tracks at once: what the column a leaf parks in is filled with. */
+    private static final Map<Direction, VoxelShape> STACKED_SHAPES =
+            Shapes.rotateHorizontal(Block.boxZ(16.0, 10.0, 16.0));
 
     /**
      * The transaction guard (D-08). While it is active the parts ignore the integrity logic:
@@ -169,13 +249,12 @@ public class WideDoorBlock extends Block {
         this.mode = mode;
         this.style = style;
         this.type = type;
-        registerDefaultState(stateDefinition.any()
+        BlockState base = stateDefinition.any()
                 .setValue(FACING, Direction.NORTH)
                 .setValue(HALF, DoubleBlockHalf.LOWER)
-                .setValue(HINGE, DoorHingeSide.LEFT)
-                .setValue(SWING, DoorSwing.CLOSED)
-                .setValue(POWERED, false)
-                .setValue(PART, 0));
+                .setValue(swingProperty(), DoorSwing.CLOSED);
+        registerDefaultState(
+                withPart(withPowered(withHinge(base, DoorHingeSide.LEFT), false), 0));
     }
 
     @Override
@@ -185,7 +264,23 @@ public class WideDoorBlock extends Block {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, HALF, HINGE, SWING, POWERED, PART);
+        Shape building = BUILDING.get();
+        if (building == null) {
+            throw new IllegalStateException(
+                    "a door must be built through WideDoorBlock.sized(width, mode, ...)");
+        }
+        builder.add(FACING, HALF, swingProperty());
+        // Three properties every door has, and three it declares only if it reads them. A
+        // property added here is added to all 226 doors, used or not (D-38).
+        if (building.mode() != DoorMode.SPLIT) {
+            builder.add(HINGE);
+        }
+        if (recordsSignal()) {
+            builder.add(POWERED);
+        }
+        if (PARTS[building.width()] != null) {
+            builder.add(PARTS[building.width()]);
+        }
     }
 
     public int width() {
@@ -204,21 +299,147 @@ public class WideDoorBlock extends Block {
         return type;
     }
 
+    /**
+     * Whether a panel of this door is travelling, and its drawing has passed to a renderer.
+     *
+     * <p>Always false here. Only a door that slides has anywhere to travel <i>to</i>, so only
+     * {@link SlidingDoorBlock} carries the property that answers this -- which is the whole
+     * point: it multiplied the states of all 226 doors to serve the 26 that slide.
+     */
+    public boolean isMoving(BlockState state) {
+        return false;
+    }
+
+    /** Records the answer to {@link #isMoving}. Leaves a door that cannot move untouched. */
+    protected BlockState withMoving(BlockState state, boolean moving) {
+        return state;
+    }
+
+    /**
+     * The property that says where this door's leaf is.
+     *
+     * <p>A door that swings both ways declares a wider one. Everything reads it through here so
+     * that the difference stays in the two classes that care.
+     */
+    public EnumProperty<DoorSwing> swingProperty() {
+        return SWING;
+    }
+
     /** Where this part's leaf currently sits, in the terms {@code core} uses. */
     public static Swing swingOf(BlockState state) {
-        return WideDoorGeometry.toCore(state.getValue(SWING));
+        WideDoorBlock door = (WideDoorBlock) state.getBlock();
+        return WideDoorGeometry.toCore(state.getValue(door.swingProperty()));
+    }
+
+    /**
+     * A block entity, but only on the styles that slide, and only to draw them.
+     *
+     * <p>Nothing the game depends on lives in it -- see {@link SlidingPanelsBlockEntity}. Every
+     * other style returns null and stays exactly as it was.
+     */
+    @Override
+    public @Nullable BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return style.slides() ? new SlidingPanelsBlockEntity(pos, state) : null;
+    }
+
+    /** How many ticks this panel still has to travel, or 0 if it is due. */
+    private static int remainingSlide(Level level, BlockPos pos) {
+        return level.getBlockEntity(pos) instanceof SlidingPanelsBlockEntity panels
+                ? panels.remainingSlide(level.getGameTime())
+                : 0;
+    }
+
+    /** Records a departure on the block entity that carries the arrival tick. */
+    private static void departed(Level level, BlockPos pos) {
+        if (level.getBlockEntity(pos) instanceof SlidingPanelsBlockEntity panels) {
+            panels.departed(level.getGameTime());
+        }
+    }
+
+    /**
+     * A sliding door is drawn entirely by its renderer, so the world draws nothing for it.
+     *
+     * <p>This is what buys the animation for free. A block's model comes from its state, and a
+     * state is discrete -- there is no value between "shut" and "open" to hang a position on.
+     * The alternative was to add the in-between positions as states, and since {@code SWING} is
+     * shared by every door, that would have multiplied the variants of all 226 of them to give
+     * two styles an animation. Handing the drawing to the renderer costs nothing anywhere else.
+     *
+     * <p>The price is that sliding doors are not batched into the chunk mesh, the same price
+     * vanilla pays for chests, beds and signs.
+     */
+    @Override
+    protected RenderShape getRenderShape(BlockState state) {
+        return isMoving(state) || style.drawnByRenderer()
+                ? RenderShape.INVISIBLE
+                : super.getRenderShape(state);
     }
 
     /**
      * The column index, clamped to this block's real width.
      *
-     * <p>{@code PART} goes up to 3 on every block (D-22), so narrow blocks have states that
-     * never exist in the world -- but which Minecraft <b>evaluates anyway</b> when precomputing
-     * shapes and collisions at registration. Without this clamp, a width-1 door blows up at
-     * start-up when asked about {@code PART = 1}.
+     * <p>Zero at width 1, where the property does not exist because there is nothing for it to
+     * distinguish. Everywhere else its range is exactly this door's, so no state can name a
+     * column the door does not have -- which is what the clamp that used to live here was for.
      */
-    private int partOf(BlockState state) {
-        return Math.min(state.getValue(PART), width - 1);
+    public int partOf(BlockState state) {
+        IntegerProperty part = partProperty();
+        return part == null ? 0 : state.getValue(part);
+    }
+
+    /** This door's column property, or null at width 1. */
+    public @Nullable IntegerProperty partProperty() {
+        return PARTS[width];
+    }
+
+    /**
+     * This door's hinge property, or null on a door that opens from the middle.
+     *
+     * <p>A {@link DoorMode#SPLIT} door has no hinge to choose. Its two leaves each turn about
+     * their own outer end -- {@code DoorLayout.pivotAtLowEnd} answers {@code part < width / 2}
+     * and never looks at the hinge -- so the property was two values that changed nothing, on
+     * 125 of the 226 doors (D-38).
+     */
+    public @Nullable EnumProperty<DoorHingeSide> hingeProperty() {
+        return mode == DoorMode.SPLIT ? null : HINGE;
+    }
+
+    /** Which end this door hinges on. Always LEFT where there is no choice to make. */
+    public DoorHingeSide hingeOf(BlockState state) {
+        EnumProperty<DoorHingeSide> hinge = hingeProperty();
+        return hinge == null ? DoorHingeSide.LEFT : state.getValue(hinge);
+    }
+
+    /** Sets the hinge, where there is one to set. */
+    public BlockState withHinge(BlockState state, DoorHingeSide side) {
+        EnumProperty<DoorHingeSide> hinge = hingeProperty();
+        return hinge == null ? state : state.setValue(hinge, side);
+    }
+
+    /**
+     * Whether this door keeps the redstone signal in its state.
+     *
+     * <p>True everywhere except a spring door, which cannot be held open by anything and so has
+     * no signal worth remembering ({@link DoorStyle#springLoaded()}, D-36).
+     */
+    public boolean recordsSignal() {
+        return true;
+    }
+
+    /** Whether a signal is holding this door open. Always false where none is recorded. */
+    public boolean poweredOf(BlockState state) {
+        return recordsSignal() && state.getValue(POWERED);
+    }
+
+    /** Stores the signal, where there is one to store. */
+    public BlockState withPowered(BlockState state, boolean powered) {
+        return recordsSignal() ? state.setValue(POWERED, powered) : state;
+    }
+
+    /** Sets the column, where there is one to set. */
+    public BlockState withPart(BlockState state, int part) {
+        IntegerProperty property = partProperty();
+        return property == null ? state : state.setValue(property, part);
     }
 
     /**
@@ -233,13 +454,26 @@ public class WideDoorBlock extends Block {
         return state.getValue(HALF) == DoubleBlockHalf.UPPER ? pos.below() : pos;
     }
 
+    /**
+     * The lower half of column {@code PART 0}: the one position every part of a door agrees on.
+     *
+     * <p>It is the structure's origin (§3), reachable from any part without a block entity or a
+     * search. What it is used for is a place to keep the one thing a door has to share -- the
+     * clock its panels move on.
+     */
+    public BlockPos anchorOf(BlockState state, BlockPos pos) {
+        return WideDoorGeometry.origin(
+                lowerHalf(state, pos), layoutOf(state), partOf(state), swingOf(state));
+    }
+
     /** The geometric layout matching a state. */
     public DoorLayout layoutOf(BlockState state) {
         return new DoorLayout(
                 WideDoorGeometry.toCore(state.getValue(FACING)),
                 width,
                 mode,
-                state.getValue(HINGE) == DoorHingeSide.LEFT ? Hinge.LEFT : Hinge.RIGHT);
+                hingeOf(state) == DoorHingeSide.LEFT ? Hinge.LEFT : Hinge.RIGHT,
+                style.motion());
     }
 
     // ------------------------------------------------------------------ shape
@@ -249,14 +483,53 @@ public class WideDoorBlock extends Block {
                                   CollisionContext context) {
         Swing swing = swingOf(state);
         Direction leaf = WideDoorGeometry.leafDirection(layoutOf(state), partOf(state), swing);
+
+        if (style.slides()) {
+            if (swing == Swing.CLOSED) {
+                return (parksHere(state) ? LEAF_SHAPES : BACK_TRACK_SHAPES).get(leaf);
+            }
+            // Open, a whole leaf is stacked in the column it parks in and the rest are clear.
+            // That empty shape is the doorway: it is what the player walks through.
+            return parksHere(state) ? STACKED_SHAPES.get(leaf) : Shapes.empty();
+        }
+
         boolean centred = style.springLoaded() && swing == Swing.CLOSED;
         return (centred ? CENTRED_LEAF_SHAPES : LEAF_SHAPES).get(leaf);
+    }
+
+    /**
+     * Whether a sliding leaf ends up in this column.
+     *
+     * <p>Always false for a door that swings, which is what keeps the callers below reading as
+     * one rule rather than two.
+     */
+    private boolean parksHere(BlockState state) {
+        return style.slides() && layoutOf(state).parksHere(partOf(state));
+    }
+
+    /**
+     * How far along the wall this column's panel sits, in blocks.
+     *
+     * <p>Zero while shut, and once open, the distance from this column to the one its leaf parks
+     * in -- which is zero again for the column that does the parking. It is a signed count of
+     * columns along {@code wallAxis}, not a direction, so that the only thing between shut and
+     * open is a number to interpolate.
+     */
+    public float panelOffset(BlockState state) {
+        if (!style.slides() || !swingOf(state).isOpen()) {
+            return 0.0F;
+        }
+        DoorLayout layout = layoutOf(state);
+        int part = partOf(state);
+        return layout.hingePart(part) - part;
     }
 
     @Override
     protected boolean isPathfindable(BlockState state, PathComputationType type) {
         return switch (type) {
-            case LAND, AIR -> swingOf(state).isOpen();
+            // An open door is out of the way -- except the column a sliding leaf parked in,
+            // which is as solid as it was before, only twice as thick.
+            case LAND, AIR -> swingOf(state).isOpen() && !parksHere(state);
             case WATER -> false;
         };
     }
@@ -286,10 +559,9 @@ public class WideDoorBlock extends Block {
         // The hinge plays no part in this choice: the closed footprint is a line along the wall
         // and does not depend on the rotation axis.
         for (int clickedPart : alignmentPreference()) {
-            BlockState state = defaultBlockState()
+            BlockState state = withPart(defaultBlockState()
                     .setValue(FACING, context.getHorizontalDirection())
-                    .setValue(HALF, DoubleBlockHalf.LOWER)
-                    .setValue(PART, clickedPart);
+                    .setValue(HALF, DoubleBlockHalf.LOWER), clickedPart);
 
             DoorLayout layout = layoutOf(state);
             BlockPos origin = WideDoorGeometry.origin(clicked, layout, clickedPart, Swing.CLOSED);
@@ -301,11 +573,11 @@ public class WideDoorBlock extends Block {
             // "open" while the blocks still sit on the closed footprint, and the next operation
             // would clear the open positions -- which belong to whatever else is there.
             //
-            // A spring door never records a signal: it cannot be held open, so POWERED would be
-            // a value nobody ever reads.
-            return state.setValue(HINGE, pivotFor(clickedPart, aim))
-                    .setValue(SWING, DoorSwing.CLOSED)
-                    .setValue(POWERED, !style.springLoaded() && hasSignal(level, columns));
+            // A spring door records no signal at all -- it cannot be held open -- so it does
+            // not carry POWERED, and does not even go looking for one.
+            return withPowered(withHinge(state, pivotFor(clickedPart, aim))
+                    .setValue(swingProperty(), DoorSwing.CLOSED),
+                    recordsSignal() && hasSignal(level, columns));
         }
         return null;
     }
@@ -409,7 +681,7 @@ public class WideDoorBlock extends Block {
         try {
             for (int part = 0; part < layout.width(); part++) {
                 BlockPos column = columns.get(part);
-                BlockState lower = state.setValue(PART, part).setValue(HALF, DoubleBlockHalf.LOWER);
+                BlockState lower = withPart(state, part).setValue(HALF, DoubleBlockHalf.LOWER);
                 if (!column.equals(placed)) {
                     level.setBlock(column, lower, Block.UPDATE_ALL);
                 }
@@ -423,7 +695,7 @@ public class WideDoorBlock extends Block {
         // Placed next to an already-active signal: it opens next, through the normal path.
         // Opening here would mean duplicating the displacement logic, and marking it open at
         // placement would leave the state disagreeing with where the blocks actually are.
-        if (state.getValue(POWERED)) {
+        if (poweredOf(state)) {
             BlockState placedState = level.getBlockState(placed);
             if (placedState.is(this)) {
                 apply(level, placedState, placed, Swing.OUT, true, false);
@@ -451,6 +723,29 @@ public class WideDoorBlock extends Block {
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        // Before the "is it open" guard, because a panel arrives home when the door shuts just
+        // as much as when it opens. Behind that guard, closing left SLIDING set for good, and
+        // a shut door stayed invisible past the 64 blocks a renderer reaches.
+        if (style.slides()) {
+            if (isMoving(state)) {
+                // Every departure schedules the tick that ends it, and a door told to reverse
+                // departs again -- leaving the first tick still in the queue, due in the middle
+                // of the second journey. It used to end that journey: the flag cleared early,
+                // the renderer let go, and the panel was left wherever it had got to, which
+                // read as a small teleport. Now an early tick is sent away and comes back when
+                // the panel is actually due.
+                int remaining = remainingSlide(level, pos);
+                if (remaining > 0) {
+                    level.scheduleTick(pos, this, remaining);
+                    return;
+                }
+                // The panel has arrived. Handing the drawing back to the block model is the
+                // whole job here -- apply with the swing it has moves nothing and clears
+                // SLIDING.
+                apply(level, state, pos, swingOf(state), poweredOf(state), false);
+            }
+            return;
+        }
         if (!swingOf(state).isOpen()) {
             return;
         }
@@ -494,7 +789,7 @@ public class WideDoorBlock extends Block {
         BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), swing);
         boolean signal = hasSignal(level, WideDoorGeometry.columns(origin, layout, Swing.CLOSED));
 
-        if (signal == state.getValue(POWERED)) {
+        if (signal == poweredOf(state)) {
             return;
         }
         // Redstone only ever swings a door the way it was always going to swing: there is no
@@ -584,10 +879,10 @@ public class WideDoorBlock extends Block {
                 && old.mode == mode
                 && old.style == style
                 && oldState.getValue(FACING) == state.getValue(FACING)
-                && oldState.getValue(HINGE) == state.getValue(HINGE)
+                && old.hingeOf(oldState) == hingeOf(state)
                 && oldState.getValue(HALF) == state.getValue(HALF)
-                && oldState.getValue(SWING) == state.getValue(SWING)
-                && oldState.getValue(PART).equals(state.getValue(PART));
+                && oldState.getValue(swingProperty()) == state.getValue(swingProperty())
+                && old.partOf(oldState) == partOf(state);
     }
 
     /** Interacting with any part moves the whole door (§5). */
@@ -601,7 +896,7 @@ public class WideDoorBlock extends Block {
             return InteractionResult.SUCCESS;
         }
         boolean moved = apply(level, state, pos, nextSwing(state, pos, player),
-                state.getValue(POWERED), true);
+                poweredOf(state), true);
         return moved ? InteractionResult.SUCCESS : InteractionResult.CONSUME;
     }
 
@@ -686,10 +981,12 @@ public class WideDoorBlock extends Block {
                 }
             }
             for (int part = 0; part < layout.width(); part++) {
-                BlockState lower = state.setValue(PART, part)
-                        .setValue(SWING, WideDoorGeometry.toMinecraft(targetSwing))
-                        .setValue(POWERED, targetPowered)
-                        .setValue(HALF, DoubleBlockHalf.LOWER);
+                // Set on the way out and cleared on the way back, by the tick above. Doors
+                // that swing have nothing to record and withMoving leaves them alone.
+                BlockState lower = withMoving(withPowered(withPart(state, part)
+                        .setValue(swingProperty(), WideDoorGeometry.toMinecraft(targetSwing)),
+                        targetPowered)
+                        .setValue(HALF, DoubleBlockHalf.LOWER), moves);
                 level.setBlock(to.get(part), lower, Block.UPDATE_CLIENTS);
                 level.setBlock(to.get(part).above(), lower.setValue(HALF, DoubleBlockHalf.UPPER),
                         Block.UPDATE_CLIENTS);
@@ -710,15 +1007,28 @@ public class WideDoorBlock extends Block {
             level.updateNeighborsAt(column.above(), this);
         }
 
-        // Two reasons to come back later, and a door only ever needs one of them.
+        // Two reasons to come back later, and a door needs at most one of them.
         //
-        // A spring door is due to close. Every other door has left its frame, so the signal
-        // source no longer touches it and no signal change reaches it by neighbour update --
-        // it has to poll. Polling starts regardless of what opened it: a door opened by hand
-        // must still react to a plate afterwards.
-        if (targetSwing.isOpen()) {
+        // A spring door is due to close. A door that left its frame has to poll, because the
+        // signal source no longer touches it and no neighbour update will announce the signal
+        // dropping. Polling starts regardless of what opened it: a door opened by hand must
+        // still react to a plate afterwards.
+        //
+        // A door that stays where it is needs neither. That is every sliding door, and the
+        // narrow swinging ones too, which were being woken five times a second for nothing.
+        if (targetSwing.isOpen() && (style.springLoaded() || layout.movesBlocks())) {
             level.scheduleTick(to.get(0), this,
                     style.springLoaded() ? SPRING_CLOSE_TICKS : SIGNAL_POLL_TICKS);
+        }
+
+        // And a sliding door comes back to turn its own renderer off again. The departure is
+        // written down first, so that the tick can tell an arrival from a journey that was
+        // restarted after it was scheduled.
+        if (style.slides()) {
+            if (moves) {
+                departed(level, to.get(0));
+            }
+            level.scheduleTick(to.get(0), this, SLIDE_HOLD_TICKS);
         }
 
         // A null entity on purpose: on the server, passing the player *excludes* them from
@@ -803,12 +1113,12 @@ public class WideDoorBlock extends Block {
         inTransaction(true);
         try {
             for (int part = 0; part < layout.width(); part++) {
-                BlockState lower = target.defaultBlockState()
-                        .setValue(FACING, state.getValue(FACING))
-                        .setValue(HINGE, state.getValue(HINGE))
-                        .setValue(SWING, state.getValue(SWING))
-                        .setValue(POWERED, state.getValue(POWERED))
-                        .setValue(PART, part)
+                // The target is the same door in another material -- same width, same mode --
+                // so this door's own accessors describe its state correctly.
+                BlockState lower = withPart(withPowered(withHinge(target.defaultBlockState()
+                        .setValue(FACING, state.getValue(FACING)), hingeOf(state))
+                        .setValue(swingProperty(), state.getValue(swingProperty())),
+                        poweredOf(state)), part)
                         .setValue(HALF, DoubleBlockHalf.LOWER);
                 level.setBlock(columns.get(part), lower, Block.UPDATE_CLIENTS);
                 level.setBlock(columns.get(part).above(),
@@ -908,8 +1218,12 @@ public class WideDoorBlock extends Block {
 
     @Override
     protected BlockState mirror(BlockState state, Mirror mirror) {
-        return mirror == Mirror.NONE
-                ? state
-                : rotate(state, mirror.getRotation(state.getValue(FACING))).cycle(HINGE);
+        if (mirror == Mirror.NONE) {
+            return state;
+        }
+        // Mirroring swaps the hinge end -- on a door that has one. A door opening from the
+        // middle is symmetric about that same axis, so the rotation alone is the whole answer.
+        BlockState turned = rotate(state, mirror.getRotation(state.getValue(FACING)));
+        return hingeProperty() == null ? turned : turned.cycle(HINGE);
     }
 }

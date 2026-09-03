@@ -1,7 +1,9 @@
 package com.doorways.block;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
@@ -9,6 +11,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.DoubleHighBlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 
 /**
  * Creates and registers the doors.
@@ -18,8 +21,14 @@ import net.minecraft.world.level.block.Block;
  */
 public final class DoorwaysContent {
 
-    /** A component of every door recipe. Reusable by v0.2's sliding doors. */
+    /** A component of every door recipe, except the sliding ones, which have no hinge. */
     public static final String HINGE = "iron_hinge";
+
+    /** What a hinge is to the doors that swing. A fusuma runs in a groove, not on a pivot. */
+    public static final String TRACK = "sliding_track";
+
+    /** The block entity every sliding door carries, so that its panels can be drawn moving. */
+    public static final String SLIDING_PANELS = "sliding_panels";
 
     /**
      * The one thing the two loaders do differently.
@@ -36,12 +45,34 @@ public final class DoorwaysContent {
         Supplier<Block> block(ResourceKey<Block> key, Supplier<Block> factory);
 
         Supplier<Item> item(ResourceKey<Item> key, Supplier<Item> factory);
+
+        /**
+         * Typed to the one block entity the mod has rather than made generic.
+         *
+         * <p>A generic version would have to fight the wildcards on the registry for no gain
+         * today. When a second one arrives -- a gate, say -- that is the moment to widen it.
+         */
+        Supplier<BlockEntityType<SlidingPanelsBlockEntity>> blockEntity(
+                ResourceKey<BlockEntityType<?>> key,
+                Supplier<BlockEntityType<SlidingPanelsBlockEntity>> factory);
     }
 
-    /** Registers the hinge item. */
-    public static Supplier<Item> registerHinge(String modId, Registrar registrar) {
+    private static Supplier<BlockEntityType<SlidingPanelsBlockEntity>> slidingPanels = () -> null;
+
+    /** The block entity type sliding doors are drawn from. Valid after {@link #registerAll}. */
+    public static BlockEntityType<SlidingPanelsBlockEntity> slidingPanels() {
+        return slidingPanels.get();
+    }
+
+    /**
+     * Registers one of the parts a door is built from -- {@link #HINGE} or {@link #TRACK}.
+     *
+     * <p>Which one a door needs says something about it: everything that swings starts from a
+     * hinge, and everything that slides starts from a track.
+     */
+    public static Supplier<Item> registerComponent(String modId, Registrar registrar, String name) {
         ResourceKey<Item> key = ResourceKey.create(
-                Registries.ITEM, Identifier.fromNamespaceAndPath(modId, HINGE));
+                Registries.ITEM, Identifier.fromNamespaceAndPath(modId, name));
         return registrar.item(key, () -> new Item(new Item.Properties().setId(key)));
     }
 
@@ -77,7 +108,25 @@ public final class DoorwaysContent {
             doors.put(variant, block);
         }
 
-        return Map.copyOf(doors);
+        Map<DoorVariant, Supplier<Block>> registered = Map.copyOf(doors);
+
+        // The set of blocks is resolved inside the factory, not here. On NeoForge the blocks do
+        // not exist yet at this point (D-32); by the time the block entity registry is filled
+        // they do, because vanilla processes BLOCK before BLOCK_ENTITY_TYPE.
+        ResourceKey<BlockEntityType<?>> key = ResourceKey.create(
+                Registries.BLOCK_ENTITY_TYPE,
+                Identifier.fromNamespaceAndPath(modId, SLIDING_PANELS));
+        slidingPanels = registrar.blockEntity(key, () -> {
+            Set<Block> sliding = new LinkedHashSet<>();
+            registered.forEach((variant, block) -> {
+                if (variant.style().slides()) {
+                    sliding.add(block.get());
+                }
+            });
+            return new BlockEntityType<>(SlidingPanelsBlockEntity::new, sliding);
+        });
+
+        return registered;
     }
 
     private DoorwaysContent() {}

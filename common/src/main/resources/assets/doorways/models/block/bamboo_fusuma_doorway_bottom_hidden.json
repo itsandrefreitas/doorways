@@ -1,0 +1,7 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "doorways:block/bamboo_fusuma_doorway_bottom_panel"
+  },
+  "elements": []
+}

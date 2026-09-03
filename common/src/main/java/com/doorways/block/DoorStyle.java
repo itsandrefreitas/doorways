@@ -1,5 +1,9 @@
 package com.doorways.block;
 
+import com.doorways.core.geometry.DoorLayout;
+import com.doorways.core.geometry.DoorMode;
+import com.doorways.core.geometry.Motion;
+
 /**
  * What a door looks like, and which materials and widths it exists in.
  *
@@ -31,7 +35,28 @@ public enum DoorStyle {
     SALOON("_saloon", true),
 
     /** A wall of books. One door per width. */
-    BOOKSHELF("", false);
+    BOOKSHELF("", false),
+
+    /**
+     * A plain paper panel in a lacquered border, running on two tracks.
+     *
+     * <p>Fusuma rather than shoji, and the difference matters: a shoji is its lattice, and a
+     * fusuma is a clear field with nothing on it -- which is what makes it the thing people
+     * paint. The lattice is left out on purpose.
+     *
+     * <p>The first style that slides rather than swings. Its panels hide behind each other
+     * instead of leaving the doorway, which is why it needs no space beside it and can never be
+     * blocked. See {@link Motion#SLIDE}.
+     */
+    FUSUMA("_fusuma", true),
+
+    /**
+     * A sheet of glass in a slim frame, on the same two tracks.
+     *
+     * <p>Not a shoji with glass where the paper goes: a shoji is its lattice, and a glass door
+     * that slides has no business carrying one. One door per width.
+     */
+    SLIDING_GLASS("_sliding", false);
 
     private final String infix;
     private final boolean perMaterial;
@@ -60,11 +85,67 @@ public enum DoorStyle {
         return this == SALOON;
     }
 
+    /** How the leaves get out of the way. */
+    public Motion motion() {
+        return this == FUSUMA || this == SLIDING_GLASS ? Motion.SLIDE : Motion.SWING;
+    }
+
+    public boolean slides() {
+        return motion() == Motion.SLIDE;
+    }
+
+    /**
+     * Whether this style's blocks are drawn by the renderer at all times, rather than by the
+     * chunk's mesh whenever they are standing still.
+     *
+     * <p>True for the one style whose panels are <b>see-through</b>, and for that reason alone.
+     * Every other sliding door hands its drawing back and forth between the mesh and the
+     * renderer -- mesh at rest, renderer while travelling -- and the two draw it identically,
+     * so the handover cannot be seen. On glass they do not:
+     *
+     * <ul>
+     *   <li>the mesh drops the faces where two panels meet, because on an opaque door nobody
+     *       can see them. Through glass those faces are exactly what shows there is a second
+     *       panel behind the first, so arriving turned two panes into one;</li>
+     *   <li>the mesh drops faces against neighbouring blocks, and the renderer -- which is shown
+     *       a world containing only the panel -- keeps them. Every dropped layer is one less
+     *       thing to see through;</li>
+     *   <li>and a chunk's mesh is rebuilt a frame or three after the state that invalidated it,
+     *       so at each handover the two briefly draw together, or neither draws. Blended twice,
+     *       glass goes momentarily solid; drawn by neither, it blinks out.</li>
+     * </ul>
+     *
+     * <p>Nothing bridges that: the two paths are different renderers with different information.
+     * So this style never crosses between them. The cost is a block entity drawn every frame
+     * instead of geometry batched into the chunk, which is what a chest costs, and it buys a
+     * door that looks the same standing still as it does moving.
+     */
+    public boolean drawnByRenderer() {
+        return this == SLIDING_GLASS;
+    }
+
+    /**
+     * How this style divides at a given width.
+     *
+     * <p>Sliding doors do not get the default: a sliding leaf is always
+     * {@link DoorLayout#SLIDING_LEAF} panels, so two columns make one leaf and four make two.
+     * Every other style follows the table in §2.
+     */
+    public DoorMode modeFor(int width) {
+        if (!slides()) {
+            return DoorMode.defaultFor(width);
+        }
+        return width == DoorLayout.SLIDING_LEAF ? DoorMode.SINGLE : DoorMode.SPLIT;
+    }
+
     /** Whether a door of this style exists at the given width. */
     public boolean allowsWidth(int width) {
-        // A saloon door is two swinging leaves. At odd widths one leaf would be wider than the
-        // other, which is not what the shape is.
-        return this != SALOON || width % 2 == 0;
+        // A saloon door is two swinging leaves, and a sliding one is leaves of two panels. Both
+        // need an even width: at an odd one, one leaf would come out wider than the other.
+        if (this == SALOON || slides()) {
+            return width % 2 == 0;
+        }
+        return true;
     }
 
     /**

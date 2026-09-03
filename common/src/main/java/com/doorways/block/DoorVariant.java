@@ -132,9 +132,10 @@ public record DoorVariant(Material material, int width, DoorMode mode, DoorStyle
                 all.addAll(copperStates());
                 yield List.copyOf(all);
             }
-            // Neither iron nor copper: a saloon door is a wooden thing.
-            case SALOON -> WOODS;
-            case FULL_GLASS -> List.of(GLASS);
+            // Neither iron nor copper: a saloon door is a wooden thing, and a fusuma runs in
+            // wooden grooves, with no hinge and no metal track to make one out of.
+            case SALOON, FUSUMA -> WOODS;
+            case FULL_GLASS, SLIDING_GLASS -> List.of(GLASS);
             case BOOKSHELF -> List.of(BOOKSHELF);
         };
     }
@@ -147,7 +148,7 @@ public record DoorVariant(Material material, int width, DoorMode mode, DoorStyle
             for (Material material : materialsFor(style)) {
                 for (int width = DoorLayout.MIN_WIDTH; width <= DoorLayout.MAX_WIDTH; width++) {
                     if (style.allowsWidth(width)) {
-                        all.add(new DoorVariant(material, width, DoorMode.defaultFor(width), style));
+                        all.add(new DoorVariant(material, width, style.modeFor(width), style));
                     }
                 }
             }
@@ -186,7 +187,7 @@ public record DoorVariant(Material material, int width, DoorMode mode, DoorStyle
      * {@code valueLookupBuilder} removed in 26.2.
      */
     public WideDoorBlock createBlock(String modId) {
-        BlockBehaviour.Properties properties = BlockBehaviour.Properties.of()
+        BlockBehaviour.Properties base = BlockBehaviour.Properties.of()
                 .mapColor(material.color())
                 .instrument(NoteBlockInstrument.BASS)
                 .strength(material.strength())
@@ -195,13 +196,27 @@ public record DoorVariant(Material material, int width, DoorMode mode, DoorStyle
                 .sound(style == DoorStyle.GLAZED ? SoundType.GLASS : material.sound())
                 .setId(blockKey(modId));
 
-        if (material.flammable()) {
-            properties = properties.ignitedByLava();
-        }
+        BlockBehaviour.Properties properties = material.flammable() ? base.ignitedByLava() : base;
+        // Every door is built through sized(): the state definition needs the width before the
+        // constructor can hold one. This is the path registration takes; the codecs take the
+        // same one.
         if (material.weathering() != null) {
-            return new WeatheringWideDoorBlock(width, mode, style, material.type(),
-                    material.weathering(), properties.randomTicks());
+            return WideDoorBlock.sized(width, mode, () -> new WeatheringWideDoorBlock(
+                    width, mode, style, material.type(), material.weathering(),
+                    properties.randomTicks()));
         }
-        return new WideDoorBlock(width, mode, style, material.type(), properties);
+        // A class of its own for one property, and another for one value. Carrying either on
+        // every door -- to serve the 26 that slide and the 24 that swing both ways -- cost the
+        // mod more blockstates than the whole of vanilla has.
+        if (style.slides()) {
+            return WideDoorBlock.sized(width, mode, () ->
+                    new SlidingDoorBlock(width, mode, style, material.type(), properties));
+        }
+        if (style.springLoaded()) {
+            return WideDoorBlock.sized(width, mode, () ->
+                    new SpringDoorBlock(width, mode, style, material.type(), properties));
+        }
+        return WideDoorBlock.sized(width, mode, () ->
+                new WideDoorBlock(width, mode, style, material.type(), properties));
     }
 }

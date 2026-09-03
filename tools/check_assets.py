@@ -24,6 +24,9 @@ DATA = os.path.join(BASE, "data", "doorways")
 
 problems = []
 
+# The parts a door is built from, which are items rather than doors. Mirrors DoorwaysContent.
+COMPONENTS = {"iron_hinge", "sliding_track"}
+
 
 def names(*path):
     directory = os.path.join(*path)
@@ -97,9 +100,72 @@ for recipe in names(DATA, "recipe"):
         result = json.load(f).get("result", {}).get("id", "")
     if result.startswith("doorways:"):
         produced = result.split(":", 1)[1]
-        # The hinge is a plain item, not a door, and is the one thing here that is neither.
-        expect(produced in doors or produced == "iron_hinge",
-               f"recipe {recipe} produces {result}, which is not a registered door")
+        # Everything else a recipe can make is a plain item: the hinge that every swinging door
+        # starts from, and the track that every sliding one does.
+        expect(produced in doors or produced in COMPONENTS,
+               f"recipe {recipe} produces {result}, which is neither a door nor a component")
+
+# A loot table may only name properties the door actually has.
+#
+# Naming one it does not have makes the whole table fail to parse, and a door with no loot table
+# drops nothing at all -- silently, in survival, with only a line in the log at start-up. It
+# happened: after `part` became one property per width (D-38), the 44 one-column doors kept a
+# `part=0` condition for a property they no longer declared.
+#
+# The blockstate keys are the ground truth for what a door declares, with one exception: the two
+# properties deliberately left out of the dispatch, which every variant serves both values of.
+NOT_DISPATCHED = {"powered", "sliding"}
+
+
+def properties_of(door):
+    """The properties named in a door's blockstate keys."""
+    with io.open(os.path.join(ASSETS, "blockstates", door + ".json"), encoding="utf-8") as f:
+        return {pair.split("=")[0]
+                for key in json.load(f)["variants"]
+                for pair in key.split(",") if pair}
+
+
+def loot_conditions(node):
+    """Every block_state_property condition anywhere in a loot table."""
+    if isinstance(node, dict):
+        if node.get("condition") == "minecraft:block_state_property":
+            yield node.get("properties", {})
+        for value in node.values():
+            yield from loot_conditions(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from loot_conditions(value)
+
+
+for door in sorted(doors & names(DATA, "loot_table", "blocks")):
+    declared = properties_of(door) | NOT_DISPATCHED
+    with io.open(os.path.join(DATA, "loot_table", "blocks", door + ".json"),
+                 encoding="utf-8") as f:
+        table = json.load(f)
+    for condition in loot_conditions(table):
+        for named in condition:
+            expect(named in declared,
+                   f"loot table {door} tests '{named}', which that door does not have")
+
+# Every door has to belong to a tool, and to exactly one. Without a mineable tag an axe gives
+# no bonus on a wooden door, which does not change its hardness but makes it visibly slower to
+# break than the vanilla door beside it -- a difference nothing else in this file would notice.
+MINEABLE = os.path.join(BASE, "data", "minecraft", "tags", "block", "mineable")
+tagged = {}
+for tool in ("axe", "pickaxe"):
+    path = os.path.join(MINEABLE, tool + ".json")
+    if not os.path.isfile(path):
+        problems.append("missing tool tag: " + path)
+        continue
+    with io.open(path, encoding="utf-8") as f:
+        for entry in json.load(f)["values"]:
+            name = entry.split(":", 1)[1]
+            if name in tagged:
+                problems.append(f"{name} is mineable with both {tagged[name]} and {tool}")
+            tagged[name] = tool
+report("doors belonging to no tool", doors - set(tagged))
+report("tool tags naming something that is not a door", set(tagged) - doors,
+       "unrecognised")
 
 if problems:
     print("FAILED")

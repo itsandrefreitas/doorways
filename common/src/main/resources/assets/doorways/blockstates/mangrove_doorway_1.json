@@ -1,722 +1,122 @@
 {
   "variants": {
-    "facing=east,half=lower,hinge=left,part=0,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 90
-    },
-    "facing=east,half=lower,hinge=left,part=0,swing=closed": {
+    "facing=east,half=lower,hinge=left,swing=closed": {
       "model": "doorways:block/mangrove_doorway_bottom_single"
     },
-    "facing=east,half=lower,hinge=left,part=0,swing=out": {
+    "facing=east,half=lower,hinge=left,swing=out": {
       "model": "doorways:block/mangrove_doorway_bottom_single_open",
       "y": 90
     },
-    "facing=east,half=lower,hinge=left,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 90
-    },
-    "facing=east,half=lower,hinge=left,part=1,swing=closed": {
+    "facing=east,half=lower,hinge=right,swing=closed": {
       "model": "doorways:block/mangrove_doorway_bottom_single"
     },
-    "facing=east,half=lower,hinge=left,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 90
-    },
-    "facing=east,half=lower,hinge=left,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 90
-    },
-    "facing=east,half=lower,hinge=left,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single"
-    },
-    "facing=east,half=lower,hinge=left,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 90
-    },
-    "facing=east,half=lower,hinge=left,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 90
-    },
-    "facing=east,half=lower,hinge=left,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single"
-    },
-    "facing=east,half=lower,hinge=left,part=3,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 90
-    },
-    "facing=east,half=lower,hinge=right,part=0,swing=back": {
+    "facing=east,half=lower,hinge=right,swing=out": {
       "model": "doorways:block/mangrove_doorway_bottom_single_open",
       "y": 270
     },
-    "facing=east,half=lower,hinge=right,part=0,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single"
-    },
-    "facing=east,half=lower,hinge=right,part=0,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 270
-    },
-    "facing=east,half=lower,hinge=right,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 270
-    },
-    "facing=east,half=lower,hinge=right,part=1,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single"
-    },
-    "facing=east,half=lower,hinge=right,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 270
-    },
-    "facing=east,half=lower,hinge=right,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 270
-    },
-    "facing=east,half=lower,hinge=right,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single"
-    },
-    "facing=east,half=lower,hinge=right,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 270
-    },
-    "facing=east,half=lower,hinge=right,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 270
-    },
-    "facing=east,half=lower,hinge=right,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single"
-    },
-    "facing=east,half=lower,hinge=right,part=3,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 270
-    },
-    "facing=east,half=upper,hinge=left,part=0,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 90
-    },
-    "facing=east,half=upper,hinge=left,part=0,swing=closed": {
+    "facing=east,half=upper,hinge=left,swing=closed": {
       "model": "doorways:block/mangrove_doorway_top_single"
     },
-    "facing=east,half=upper,hinge=left,part=0,swing=out": {
+    "facing=east,half=upper,hinge=left,swing=out": {
       "model": "doorways:block/mangrove_doorway_top_single_open",
       "y": 90
     },
-    "facing=east,half=upper,hinge=left,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 90
-    },
-    "facing=east,half=upper,hinge=left,part=1,swing=closed": {
+    "facing=east,half=upper,hinge=right,swing=closed": {
       "model": "doorways:block/mangrove_doorway_top_single"
     },
-    "facing=east,half=upper,hinge=left,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 90
-    },
-    "facing=east,half=upper,hinge=left,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 90
-    },
-    "facing=east,half=upper,hinge=left,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single"
-    },
-    "facing=east,half=upper,hinge=left,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 90
-    },
-    "facing=east,half=upper,hinge=left,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 90
-    },
-    "facing=east,half=upper,hinge=left,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single"
-    },
-    "facing=east,half=upper,hinge=left,part=3,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 90
-    },
-    "facing=east,half=upper,hinge=right,part=0,swing=back": {
+    "facing=east,half=upper,hinge=right,swing=out": {
       "model": "doorways:block/mangrove_doorway_top_single_open",
       "y": 270
     },
-    "facing=east,half=upper,hinge=right,part=0,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single"
-    },
-    "facing=east,half=upper,hinge=right,part=0,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
+    "facing=north,half=lower,hinge=left,swing=closed": {
+      "model": "doorways:block/mangrove_doorway_bottom_single",
       "y": 270
     },
-    "facing=east,half=upper,hinge=right,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 270
-    },
-    "facing=east,half=upper,hinge=right,part=1,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single"
-    },
-    "facing=east,half=upper,hinge=right,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 270
-    },
-    "facing=east,half=upper,hinge=right,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 270
-    },
-    "facing=east,half=upper,hinge=right,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single"
-    },
-    "facing=east,half=upper,hinge=right,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 270
-    },
-    "facing=east,half=upper,hinge=right,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 270
-    },
-    "facing=east,half=upper,hinge=right,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single"
-    },
-    "facing=east,half=upper,hinge=right,part=3,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 270
-    },
-    "facing=north,half=lower,hinge=left,part=0,swing=back": {
+    "facing=north,half=lower,hinge=left,swing=out": {
       "model": "doorways:block/mangrove_doorway_bottom_single_open"
     },
-    "facing=north,half=lower,hinge=left,part=0,swing=closed": {
+    "facing=north,half=lower,hinge=right,swing=closed": {
       "model": "doorways:block/mangrove_doorway_bottom_single",
       "y": 270
     },
-    "facing=north,half=lower,hinge=left,part=0,swing=out": {
+    "facing=north,half=lower,hinge=right,swing=out": {
+      "model": "doorways:block/mangrove_doorway_bottom_single_open",
+      "y": 180
+    },
+    "facing=north,half=upper,hinge=left,swing=closed": {
+      "model": "doorways:block/mangrove_doorway_top_single",
+      "y": 270
+    },
+    "facing=north,half=upper,hinge=left,swing=out": {
+      "model": "doorways:block/mangrove_doorway_top_single_open"
+    },
+    "facing=north,half=upper,hinge=right,swing=closed": {
+      "model": "doorways:block/mangrove_doorway_top_single",
+      "y": 270
+    },
+    "facing=north,half=upper,hinge=right,swing=out": {
+      "model": "doorways:block/mangrove_doorway_top_single_open",
+      "y": 180
+    },
+    "facing=south,half=lower,hinge=left,swing=closed": {
+      "model": "doorways:block/mangrove_doorway_bottom_single",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=left,swing=out": {
+      "model": "doorways:block/mangrove_doorway_bottom_single_open",
+      "y": 180
+    },
+    "facing=south,half=lower,hinge=right,swing=closed": {
+      "model": "doorways:block/mangrove_doorway_bottom_single",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=right,swing=out": {
       "model": "doorways:block/mangrove_doorway_bottom_single_open"
     },
-    "facing=north,half=lower,hinge=left,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open"
+    "facing=south,half=upper,hinge=left,swing=closed": {
+      "model": "doorways:block/mangrove_doorway_top_single",
+      "y": 90
     },
-    "facing=north,half=lower,hinge=left,part=1,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 270
-    },
-    "facing=north,half=lower,hinge=left,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open"
-    },
-    "facing=north,half=lower,hinge=left,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open"
-    },
-    "facing=north,half=lower,hinge=left,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 270
-    },
-    "facing=north,half=lower,hinge=left,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open"
-    },
-    "facing=north,half=lower,hinge=left,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open"
-    },
-    "facing=north,half=lower,hinge=left,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 270
-    },
-    "facing=north,half=lower,hinge=left,part=3,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open"
-    },
-    "facing=north,half=lower,hinge=right,part=0,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
+    "facing=south,half=upper,hinge=left,swing=out": {
+      "model": "doorways:block/mangrove_doorway_top_single_open",
       "y": 180
     },
-    "facing=north,half=lower,hinge=right,part=0,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 270
+    "facing=south,half=upper,hinge=right,swing=closed": {
+      "model": "doorways:block/mangrove_doorway_top_single",
+      "y": 90
     },
-    "facing=north,half=lower,hinge=right,part=0,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 180
-    },
-    "facing=north,half=lower,hinge=right,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 180
-    },
-    "facing=north,half=lower,hinge=right,part=1,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 270
-    },
-    "facing=north,half=lower,hinge=right,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 180
-    },
-    "facing=north,half=lower,hinge=right,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 180
-    },
-    "facing=north,half=lower,hinge=right,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 270
-    },
-    "facing=north,half=lower,hinge=right,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 180
-    },
-    "facing=north,half=lower,hinge=right,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 180
-    },
-    "facing=north,half=lower,hinge=right,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 270
-    },
-    "facing=north,half=lower,hinge=right,part=3,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 180
-    },
-    "facing=north,half=upper,hinge=left,part=0,swing=back": {
+    "facing=south,half=upper,hinge=right,swing=out": {
       "model": "doorways:block/mangrove_doorway_top_single_open"
     },
-    "facing=north,half=upper,hinge=left,part=0,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 270
-    },
-    "facing=north,half=upper,hinge=left,part=0,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open"
-    },
-    "facing=north,half=upper,hinge=left,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open"
-    },
-    "facing=north,half=upper,hinge=left,part=1,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 270
-    },
-    "facing=north,half=upper,hinge=left,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open"
-    },
-    "facing=north,half=upper,hinge=left,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open"
-    },
-    "facing=north,half=upper,hinge=left,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 270
-    },
-    "facing=north,half=upper,hinge=left,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open"
-    },
-    "facing=north,half=upper,hinge=left,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open"
-    },
-    "facing=north,half=upper,hinge=left,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 270
-    },
-    "facing=north,half=upper,hinge=left,part=3,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open"
-    },
-    "facing=north,half=upper,hinge=right,part=0,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=north,half=upper,hinge=right,part=0,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 270
-    },
-    "facing=north,half=upper,hinge=right,part=0,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=north,half=upper,hinge=right,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=north,half=upper,hinge=right,part=1,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 270
-    },
-    "facing=north,half=upper,hinge=right,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=north,half=upper,hinge=right,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=north,half=upper,hinge=right,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 270
-    },
-    "facing=north,half=upper,hinge=right,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=north,half=upper,hinge=right,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=north,half=upper,hinge=right,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 270
-    },
-    "facing=north,half=upper,hinge=right,part=3,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=south,half=lower,hinge=left,part=0,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 180
-    },
-    "facing=south,half=lower,hinge=left,part=0,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=left,part=0,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 180
-    },
-    "facing=south,half=lower,hinge=left,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 180
-    },
-    "facing=south,half=lower,hinge=left,part=1,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=left,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 180
-    },
-    "facing=south,half=lower,hinge=left,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 180
-    },
-    "facing=south,half=lower,hinge=left,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=left,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 180
-    },
-    "facing=south,half=lower,hinge=left,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 180
-    },
-    "facing=south,half=lower,hinge=left,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=left,part=3,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 180
-    },
-    "facing=south,half=lower,hinge=right,part=0,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open"
-    },
-    "facing=south,half=lower,hinge=right,part=0,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=right,part=0,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open"
-    },
-    "facing=south,half=lower,hinge=right,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open"
-    },
-    "facing=south,half=lower,hinge=right,part=1,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=right,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open"
-    },
-    "facing=south,half=lower,hinge=right,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open"
-    },
-    "facing=south,half=lower,hinge=right,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=right,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open"
-    },
-    "facing=south,half=lower,hinge=right,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open"
-    },
-    "facing=south,half=lower,hinge=right,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 90
-    },
-    "facing=south,half=lower,hinge=right,part=3,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open"
-    },
-    "facing=south,half=upper,hinge=left,part=0,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=south,half=upper,hinge=left,part=0,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=left,part=0,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=south,half=upper,hinge=left,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=south,half=upper,hinge=left,part=1,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=left,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=south,half=upper,hinge=left,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=south,half=upper,hinge=left,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=left,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=south,half=upper,hinge=left,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=south,half=upper,hinge=left,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=left,part=3,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 180
-    },
-    "facing=south,half=upper,hinge=right,part=0,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open"
-    },
-    "facing=south,half=upper,hinge=right,part=0,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=right,part=0,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open"
-    },
-    "facing=south,half=upper,hinge=right,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open"
-    },
-    "facing=south,half=upper,hinge=right,part=1,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=right,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open"
-    },
-    "facing=south,half=upper,hinge=right,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open"
-    },
-    "facing=south,half=upper,hinge=right,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=right,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open"
-    },
-    "facing=south,half=upper,hinge=right,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open"
-    },
-    "facing=south,half=upper,hinge=right,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 90
-    },
-    "facing=south,half=upper,hinge=right,part=3,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open"
-    },
-    "facing=west,half=lower,hinge=left,part=0,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 270
-    },
-    "facing=west,half=lower,hinge=left,part=0,swing=closed": {
+    "facing=west,half=lower,hinge=left,swing=closed": {
       "model": "doorways:block/mangrove_doorway_bottom_single",
       "y": 180
     },
-    "facing=west,half=lower,hinge=left,part=0,swing=out": {
+    "facing=west,half=lower,hinge=left,swing=out": {
       "model": "doorways:block/mangrove_doorway_bottom_single_open",
       "y": 270
     },
-    "facing=west,half=lower,hinge=left,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 270
-    },
-    "facing=west,half=lower,hinge=left,part=1,swing=closed": {
+    "facing=west,half=lower,hinge=right,swing=closed": {
       "model": "doorways:block/mangrove_doorway_bottom_single",
       "y": 180
     },
-    "facing=west,half=lower,hinge=left,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 270
-    },
-    "facing=west,half=lower,hinge=left,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 270
-    },
-    "facing=west,half=lower,hinge=left,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 180
-    },
-    "facing=west,half=lower,hinge=left,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 270
-    },
-    "facing=west,half=lower,hinge=left,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 270
-    },
-    "facing=west,half=lower,hinge=left,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 180
-    },
-    "facing=west,half=lower,hinge=left,part=3,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 270
-    },
-    "facing=west,half=lower,hinge=right,part=0,swing=back": {
+    "facing=west,half=lower,hinge=right,swing=out": {
       "model": "doorways:block/mangrove_doorway_bottom_single_open",
       "y": 90
     },
-    "facing=west,half=lower,hinge=right,part=0,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 180
-    },
-    "facing=west,half=lower,hinge=right,part=0,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 90
-    },
-    "facing=west,half=lower,hinge=right,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 90
-    },
-    "facing=west,half=lower,hinge=right,part=1,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 180
-    },
-    "facing=west,half=lower,hinge=right,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 90
-    },
-    "facing=west,half=lower,hinge=right,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 90
-    },
-    "facing=west,half=lower,hinge=right,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 180
-    },
-    "facing=west,half=lower,hinge=right,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 90
-    },
-    "facing=west,half=lower,hinge=right,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 90
-    },
-    "facing=west,half=lower,hinge=right,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_bottom_single",
-      "y": 180
-    },
-    "facing=west,half=lower,hinge=right,part=3,swing=out": {
-      "model": "doorways:block/mangrove_doorway_bottom_single_open",
-      "y": 90
-    },
-    "facing=west,half=upper,hinge=left,part=0,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 270
-    },
-    "facing=west,half=upper,hinge=left,part=0,swing=closed": {
+    "facing=west,half=upper,hinge=left,swing=closed": {
       "model": "doorways:block/mangrove_doorway_top_single",
       "y": 180
     },
-    "facing=west,half=upper,hinge=left,part=0,swing=out": {
+    "facing=west,half=upper,hinge=left,swing=out": {
       "model": "doorways:block/mangrove_doorway_top_single_open",
       "y": 270
     },
-    "facing=west,half=upper,hinge=left,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 270
-    },
-    "facing=west,half=upper,hinge=left,part=1,swing=closed": {
+    "facing=west,half=upper,hinge=right,swing=closed": {
       "model": "doorways:block/mangrove_doorway_top_single",
       "y": 180
     },
-    "facing=west,half=upper,hinge=left,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 270
-    },
-    "facing=west,half=upper,hinge=left,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 270
-    },
-    "facing=west,half=upper,hinge=left,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 180
-    },
-    "facing=west,half=upper,hinge=left,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 270
-    },
-    "facing=west,half=upper,hinge=left,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 270
-    },
-    "facing=west,half=upper,hinge=left,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 180
-    },
-    "facing=west,half=upper,hinge=left,part=3,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 270
-    },
-    "facing=west,half=upper,hinge=right,part=0,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 90
-    },
-    "facing=west,half=upper,hinge=right,part=0,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 180
-    },
-    "facing=west,half=upper,hinge=right,part=0,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 90
-    },
-    "facing=west,half=upper,hinge=right,part=1,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 90
-    },
-    "facing=west,half=upper,hinge=right,part=1,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 180
-    },
-    "facing=west,half=upper,hinge=right,part=1,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 90
-    },
-    "facing=west,half=upper,hinge=right,part=2,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 90
-    },
-    "facing=west,half=upper,hinge=right,part=2,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 180
-    },
-    "facing=west,half=upper,hinge=right,part=2,swing=out": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 90
-    },
-    "facing=west,half=upper,hinge=right,part=3,swing=back": {
-      "model": "doorways:block/mangrove_doorway_top_single_open",
-      "y": 90
-    },
-    "facing=west,half=upper,hinge=right,part=3,swing=closed": {
-      "model": "doorways:block/mangrove_doorway_top_single",
-      "y": 180
-    },
-    "facing=west,half=upper,hinge=right,part=3,swing=out": {
+    "facing=west,half=upper,hinge=right,swing=out": {
       "model": "doorways:block/mangrove_doorway_top_single_open",
       "y": 90
     }
