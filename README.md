@@ -35,6 +35,12 @@ open is the space it occupied shut. A 2-wide one leaves a doorway of 1 block, a 
 They need a **sliding track** to craft, and they are the reason this mod has a block entity and a
 renderer at all. See D-37.
 
+**Fusuma can be painted.** Nine paintings — pine, bamboo, cherry blossom, autumn maple, the great
+wave, a waterfall, a mountain, the moon and koi — each crafted from paper and the thing it
+depicts, put on with the painting in hand and taken off with a brush. A painting covers the
+**whole door** and parts down the middle when it opens, so a 4-wide door is a wider picture
+rather than the same one stretched. See D-39.
+
 Every other door opens one way, stays where you left it, and answers a signal.
 
 | Module | What it is | Status |
@@ -61,7 +67,9 @@ wax from honeycomb, and are scraped back with an axe — as one door, not as loo
 
 A door is `width × 2` blocks. Every part reconstructs the whole from its own state — where it
 sits along the wall, which way the door faces, which end it hinges on and where the leaf is — and
-a swinging door needs no block entity to do it. Opening **moves blocks**: the leaf swings out of
+a swinging door needs no block entity to do it. A sliding one has a block entity for two things
+only: where its panel is between the two positions its state can describe, and which painting is
+on it. Opening **moves blocks**: the leaf swings out of
 its frame into the space beyond, and the frame is left empty. A sliding door is the exception
 that proves the rule: it moves nothing, and it has a block entity for drawing alone (D-37).
 
@@ -82,8 +90,8 @@ it to be* — for reading redstone, for receiving neighbour updates, or for bein
 
 ## Generated assets
 
-2680 files — 226 blockstates holding 13,248 variants between them, 832 block models, 618
-textures, 316 recipes, 226 loot tables. None of it is hand-edited, and it comes from **two**
+2734 files — 226 blockstates holding 13,248 variants between them, 832 block models, 645
+textures, 325 recipes, 226 loot tables. None of it is hand-edited, and it comes from **two**
 generators with a deliberate split:
 
 | Generator | Owns | Why |
@@ -122,6 +130,19 @@ naming convention instead of the thing that actually breaks.
 Material colours are **sampled from the vanilla textures** (`tools/palettes.py` reads PNGs
 straight out of the client jar), so each wood's tone matches the material it is named after.
 
+### The paintings are drawn by code, not stored as pictures
+
+The nine fusuma paintings are functions, built from a handful of marks — a stroke that tapers, a
+fan of short strokes, a mass with a broken edge, a pale silhouette for distance, the moon as
+unpainted paper, the painter's seal. That is what lets a motif **recompose itself** for a wider
+door instead of being stretched across it, and what makes a tenth painting a function rather than
+a file.
+
+It also means the failures are readable. Each rejected attempt is a comment where it was tried,
+with the reason: mist that read as dirt, bark ticks that read as loose pixels, diagonal fills
+that read as machine hatching, a branch long enough to be a pole, and a crane that could not be
+drawn at this size and became koi. See D-39.
+
 ## Layout
 
 ```
@@ -158,16 +179,17 @@ Three layers, and it is worth understanding what each one can and cannot catch.
 |---|---|---|
 | `core/src/test` | 20 JUnit tests | `gradlew :core:test` |
 | `core/src/verify` | `GeometryCheck`, 2052 assertions, **zero dependencies** | `gradlew :core:geometryCheck` |
-| `fabric` GameTests | 14 scenarios in a real world | `gradlew :fabric:runGameTest` |
+| `fabric` GameTests | 15 scenarios in a real world | `gradlew :fabric:runGameTest` |
 
 **The pure-geometry assertions have never caught a single real bug.** That is not a criticism of
 them — `DoorLayout` is a pure function of coordinates and was never wrong. Every bug lived at the
-boundary with the world, which is why the GameTests exist and why each of the fourteen guards a
+boundary with the world, which is why the GameTests exist and why each of the fifteen guards a
 bug that actually happened. See D-33.
 
 Several were written after the fact: the two-way saloon door shipped with defects that no
 assertion caught and that were found by standing in front of the door and looking at it (D-36),
-and the drop test was written the day 44 doors were found dropping nothing.
+the drop test was written the day 44 doors were found dropping nothing, and the painting test the
+day opening a door was found to wipe the painting off it.
 
 `GeometryCheck` lives in its own source set on purpose: it is a program with `main()`, not a
 JUnit test. It runs with nothing but a JDK — no Gradle, no Minecraft:
@@ -240,6 +262,9 @@ codebase look odd until you know the reason:
 - a sliding door's block entity holds nothing the game needs — remove it and doors snap instead of
   gliding, and nothing else changes (D-37)
 - the sliding glass door is drawn by its renderer even standing still, and no other door is (D-37)
+- a painting is not a blockstate property, and the reason is 82,944 blockstates (D-39)
+- opening a door only demolishes it when the door actually changes place, and the day that was
+  merely wasteful is the day it deleted paintings (D-39)
 
 ## License
 

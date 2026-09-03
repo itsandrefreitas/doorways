@@ -17,10 +17,12 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.RandomSource;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -885,6 +887,101 @@ public class WideDoorBlock extends Block implements EntityBlock {
                 && old.partOf(oldState) == partOf(state);
     }
 
+    /**
+     * A painting goes on with the painting in hand, and comes off with a brush.
+     *
+     * <p>Both act on the whole <b>leaf</b>, not on the block clicked: a fusuma's painting spans
+     * its two panels and both their halves, and painting a quarter of one would be painting a
+     * quarter of a picture.
+     *
+     * <p>Anything else falls through to the ordinary interaction, so a door with something else
+     * in hand still opens.
+     */
+    @Override
+    protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level,
+                                          BlockPos pos, Player player, InteractionHand hand,
+                                          BlockHitResult hit) {
+        if (style.paintable() && stack.getItem() instanceof DoorPaintingItem painting) {
+            if (!level.isClientSide()) {
+                DoorPattern previous = patternAt(level, pos);
+                if (paintDoor(level, state, pos, painting.pattern())) {
+                    // The one it replaces is handed back rather than destroyed. A painting is a
+                    // crafted thing, and losing one to a misclick is not a lesson worth teaching.
+                    if (previous != null) {
+                        popResourceFromFace(level, pos, hit.getDirection(),
+                            new ItemStack(DoorwaysContent.painting(previous)));
+                    }
+                    stack.consume(1, player);
+                    level.playSound(null, pos, SoundEvents.PAINTING_PLACE, SoundSource.BLOCKS,
+                            1.0F, 1.0F);
+                }
+            }
+            return InteractionResult.SUCCESS;
+        }
+
+        if (style.paintable() && stack.is(Items.BRUSH)) {
+            DoorPattern painted = patternAt(level, pos);
+            if (painted == null) {
+                return super.useItemOn(stack, state, level, pos, player, hand, hit);
+            }
+            if (!level.isClientSide() && paintDoor(level, state, pos, null)) {
+                // Out of the face that was brushed, so it lands in front of whoever brushed it
+                // rather than behind the door.
+                popResourceFromFace(level, pos, hit.getDirection(),
+                        new ItemStack(DoorwaysContent.painting(painted)));
+                level.playSound(null, pos, SoundEvents.BRUSH_GENERIC, SoundSource.BLOCKS,
+                        1.0F, 1.0F);
+            }
+            return InteractionResult.SUCCESS;
+        }
+
+        return super.useItemOn(stack, state, level, pos, player, hand, hit);
+    }
+
+    /** The painting on the panel at this position, or null. */
+    private static @Nullable DoorPattern patternAt(BlockGetter level, BlockPos pos) {
+        return level.getBlockEntity(pos) instanceof SlidingPanelsBlockEntity panels
+                ? panels.pattern()
+                : null;
+    }
+
+    /**
+     * Paints, or unpaints, the whole door.
+     *
+     * <p>The whole door and not one leaf: a 4-wide fusuma is one picture across four panels,
+     * and opening it parts the picture down the middle -- which is what a set of fusuma does.
+     *
+     * @return whether anything changed
+     */
+    private boolean paintDoor(Level level, BlockState state, BlockPos pos,
+                              @Nullable DoorPattern pattern) {
+        DoorLayout layout = layoutOf(state);
+        Swing swing = swingOf(state);
+        BlockPos origin = WideDoorGeometry.origin(
+                lowerHalf(state, pos), layout, partOf(state), swing);
+        List<BlockPos> columns = WideDoorGeometry.columns(origin, layout, swing);
+
+        boolean changed = false;
+        for (BlockPos column : columns) {
+            changed |= paint(level, column, pattern);
+            changed |= paint(level, column.above(), pattern);
+        }
+        return changed;
+    }
+
+    private static boolean paint(Level level, BlockPos pos, @Nullable DoorPattern pattern) {
+        if (!(level.getBlockEntity(pos) instanceof SlidingPanelsBlockEntity panels)
+                || panels.pattern() == pattern) {
+            return false;
+        }
+        panels.setPattern(pattern);
+        // A block entity's own data reaches the client only when the block is announced, and a
+        // painting changes nothing about the blockstate -- so nothing would announce it.
+        BlockState here = level.getBlockState(pos);
+        level.sendBlockUpdated(pos, here, here, Block.UPDATE_ALL);
+        return true;
+    }
+
     /** Interacting with any part moves the whole door (§5). */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
@@ -972,9 +1069,14 @@ public class WideDoorBlock extends Block implements EntityBlock {
 
         inTransaction(true);
         try {
-            // Only demolish when the leaf actually changes position. On a POWERED-only change
-            // the positions are identical, so clearing and rewriting would be wasted work.
-            if (moves) {
+            // Only demolish when the leaf actually changes <b>position</b> -- which is not the
+            // same as changing state. A sliding door occupies the same columns open and shut,
+            // and so does every door narrow enough to turn inside its own block (D-07): for all
+            // of those, clearing meant setting the door to air and building it again a line
+            // later. That was wasted work from the start, and it became a bug when the block
+            // entity gained something worth keeping: the air took the painting with it, so
+            // opening a painted fusuma wiped it.
+            if (layout.movesBlocks()) {
                 for (BlockPos column : from) {
                     clear(level, column);
                     clear(level, column.above());
@@ -1189,6 +1291,14 @@ public class WideDoorBlock extends Block implements EntityBlock {
             if (anchorState.is(this)) {
                 Block.dropResources(anchorState, level, anchor);
             }
+        }
+
+        // A painting is a crafted thing that lives on the door rather than in it, and breaking
+        // the door is not a reason to destroy it. One per door, because a door carries one
+        // picture however many panels it is painted across.
+        DoorPattern painted = dropAnchor ? patternAt(level, columns.get(0)) : null;
+        if (painted != null) {
+            popResource(level, pos, new ItemStack(DoorwaysContent.painting(painted)));
         }
 
         List<BlockPos> all = new ArrayList<>();

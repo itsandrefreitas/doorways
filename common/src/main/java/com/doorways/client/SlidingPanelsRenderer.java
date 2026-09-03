@@ -1,9 +1,16 @@
 package com.doorways.client;
 
+import com.doorways.block.DoorPattern;
 import com.doorways.block.DoorSwing;
 import com.doorways.block.SlidingPanelsBlockEntity;
 import com.doorways.block.WideDoorBlock;
 import com.doorways.block.WideDoorGeometry;
+import com.doorways.core.geometry.DoorLayout;
+import com.doorways.core.geometry.Swing;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
+import com.doorways.Doorways;
+import net.minecraft.resources.Identifier;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.List;
 import net.minecraft.client.Minecraft;
@@ -13,7 +20,15 @@ import net.minecraft.client.renderer.block.MovingBlockRenderState;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.Sheets;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.resources.model.sprite.SpriteGetter;
+import net.minecraft.client.resources.model.sprite.SpriteId;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
@@ -46,6 +61,20 @@ import org.jspecify.annotations.Nullable;
 public class SlidingPanelsRenderer
         implements BlockEntityRenderer<SlidingPanelsBlockEntity, SlidingPanelsRenderState> {
 
+    /** How far in front of the panel's face a painting is drawn, in blocks. */
+    private static final float DECAL_GAP = 0.002F;
+
+    /** Where the two tracks sit across the block, in blocks. Mirrors the generated models. */
+    private static final float NEAR_TRACK = 3.0F / 16.0F;
+    private static final float FAR_TRACK = 6.0F / 16.0F;
+
+    /** Resolves a painting's texture to its place in the block atlas. */
+    private final SpriteGetter sprites;
+
+    public SlidingPanelsRenderer(SpriteGetter sprites) {
+        this.sprites = sprites;
+    }
+
     /**
      * How far away this still draws, in blocks. The default is 64.
      *
@@ -76,11 +105,11 @@ public class SlidingPanelsRenderer
         state.xOffset = 0.0F;
         state.zOffset = 0.0F;
         state.breakingParts.clear();
+        state.painting = null;
 
         BlockState blockState = door.getBlockState();
         if (!(door.getLevel() instanceof ClientLevel level)
-                || !(blockState.getBlock() instanceof WideDoorBlock block)
-                || !door.isDrawnHere()) {
+                || !(blockState.getBlock() instanceof WideDoorBlock block)) {
             return;
         }
 
@@ -89,6 +118,15 @@ public class SlidingPanelsRenderer
         Direction wall = WideDoorGeometry.toMinecraft(block.layoutOf(blockState).wallAxis());
         state.xOffset = wall.getStepX() * offset;
         state.zOffset = wall.getStepZ() * offset;
+
+        // Before the question of who draws the panel, because the answer differs: the mesh draws
+        // a fusuma standing still, but it cannot draw the painting on it -- a painting is not in
+        // any model. So the panel is this renderer's job only sometimes, and the painting always.
+        extractPainting(door, state, block, blockState);
+
+        if (!door.isDrawnHere()) {
+            return;
+        }
 
         BlockPos pos = door.getBlockPos();
         MovingBlockRenderState panel = new MovingBlockRenderState();
@@ -121,31 +159,150 @@ public class SlidingPanelsRenderer
      * crack an ordinary block ({@code LevelRenderer}, block-breaking pass).
      *
      * <p>The seed comes from the position, so a model that varies at random stays the same block
-     * it was drawing a moment ago. NeoForge deprecates this in favour of its own model
-     * extensions; vanilla itself has no other way to ask.
+     * it was drawing a moment ago.
+     *
+     * <p>This call is deprecated under NeoForge, which would rather it went through its own model
+     * extensions, and is not deprecated in the game itself -- so on the vanilla side a
+     * {@code @SuppressWarnings("deprecation")} here is flagged as unnecessary. There is no
+     * spelling that satisfies both: an extension method does not exist on Fabric, and `common`
+     * compiles against each in turn. The NeoForge build therefore prints one note about a
+     * deprecated API, and that note is this.
      */
-    @SuppressWarnings("deprecation")
     private static void collectParts(BlockState state, BlockPos pos,
                                      List<BlockStateModelPart> into) {
         Minecraft.getInstance().getModelManager().getBlockStateModelSet().get(state)
                 .collectParts(RandomSource.create(state.getSeed(pos)), into);
     }
 
+    /**
+     * Works out which quarter of which painting this block shows.
+     *
+     * <p>The rotation is taken from the same {@code leafDirection} the blockstate generator uses,
+     * because the panel itself is drawn from a model the blockstate has already turned, and a
+     * painting that did not turn with it would end up on the wrong face of the door.
+     */
+    private void extractPainting(SlidingPanelsBlockEntity door, SlidingPanelsRenderState state,
+                                 WideDoorBlock block, BlockState blockState) {
+        DoorPattern pattern = door.pattern();
+        if (pattern == null) {
+            return;
+        }
+        // The mapper knows which atlas block textures live on and what they are called there,
+        // which is one fact fewer to write down and get wrong.
+        // One canvas per width: a painting covers the whole door, so a 4-wide door carries a
+        // wider picture rather than the same picture stretched.
+        int width = block.width();
+        SpriteId id = Sheets.BLOCKS_MAPPER.apply(Identifier.fromNamespaceAndPath(
+                Doorways.MOD_ID, "painting/" + pattern.id() + "_" + width));
+        TextureAtlasSprite sprite = sprites.get(id);
+
+        DoorLayout layout = block.layoutOf(blockState);
+        int part = block.partOf(blockState);
+        boolean upper = blockState.getValue(WideDoorBlock.HALF) == DoubleBlockHalf.UPPER;
+        float slice = (float) part / width;
+        float next = (float) (part + 1) / width;
+
+        state.painting = sprite;
+        state.paintingType = id.renderType(RenderTypes::entityCutout);
+        state.paintingU0 = Mth.lerp(slice, sprite.getU0(), sprite.getU1());
+        state.paintingU1 = Mth.lerp(next, sprite.getU0(), sprite.getU1());
+        // The back of the door shows the picture the right way round too, and that means the
+        // opposite slice read backwards -- not this slice read backwards. Reversing in place
+        // left each panel readable and broke every join, because seen from behind the panels
+        // are in the other order.
+        state.paintingBackU0 = Mth.lerp(1.0F - slice, sprite.getU0(), sprite.getU1());
+        state.paintingBackU1 = Mth.lerp(1.0F - next, sprite.getU0(), sprite.getU1());
+        state.paintingV0 = Mth.lerp(upper ? 0.0F : 0.5F, sprite.getV0(), sprite.getV1());
+        state.paintingV1 = Mth.lerp(upper ? 0.5F : 1.0F, sprite.getV0(), sprite.getV1());
+        state.frontTrack = layout.parksHere(part);
+        state.leafRotation = yRotation(
+                WideDoorGeometry.leafDirection(layout, part, Swing.CLOSED));
+    }
+
+    /** The same mapping the blockstate generator uses: the base model faces east. */
+    private static int yRotation(Direction leaf) {
+        return switch (leaf) {
+            case EAST -> 0;
+            case SOUTH -> 90;
+            case WEST -> 180;
+            case NORTH -> 270;
+            default -> 0;
+        };
+    }
+
+    /**
+     * Draws the painting on both faces of the panel, the far one mirrored so that it reads the
+     * same way from either side of the door.
+     */
+    private static void submitPainting(SlidingPanelsRenderState state, PoseStack poseStack,
+                                       SubmitNodeCollector collector) {
+        if (state.painting == null) {
+            return;
+        }
+        poseStack.pushPose();
+        // The model the panel is drawn from was turned by its blockstate; this turns with it,
+        // about the same point -- the centre of the block, not the hinge.
+        poseStack.translate(0.5F, 0.5F, 0.5F);
+        poseStack.mulPose(Axis.YP.rotationDegrees(-state.leafRotation));
+        poseStack.translate(-0.5F, -0.5F, -0.5F);
+
+        float near = (state.frontTrack ? 0.0F : NEAR_TRACK) - DECAL_GAP;
+        float far = (state.frontTrack ? NEAR_TRACK : FAR_TRACK) + DECAL_GAP;
+        float u0 = state.paintingU0;
+        float u1 = state.paintingU1;
+        float backU0 = state.paintingBackU0;
+        float backU1 = state.paintingBackU1;
+        float v0 = state.paintingV0;
+        float v1 = state.paintingV1;
+        int light = state.lightCoords;
+
+        collector.submitCustomGeometry(poseStack, state.paintingType,
+                (pose, buffer) -> {
+                    face(pose, buffer, near, -1.0F, u0, u1, v0, v1, light);
+                    face(pose, buffer, far, 1.0F, backU0, backU1, v0, v1, light);
+                });
+        poseStack.popPose();
+    }
+
+    /** One face of the painting: a flat quad across the whole block, at the given depth. */
+    private static void face(PoseStack.Pose pose, VertexConsumer buffer, float x, float normal,
+                             float u0, float u1, float v0, float v1, int light) {
+        vertex(pose, buffer, x, 0.0F, 0.0F, u0, v1, normal, light);
+        vertex(pose, buffer, x, 0.0F, 1.0F, u1, v1, normal, light);
+        vertex(pose, buffer, x, 1.0F, 1.0F, u1, v0, normal, light);
+        vertex(pose, buffer, x, 1.0F, 0.0F, u0, v0, normal, light);
+    }
+
+    private static void vertex(PoseStack.Pose pose, VertexConsumer buffer, float x, float y,
+                               float z, float u, float v, float normal, int light) {
+        buffer.addVertex(pose, x, y, z)
+                .setColor(-1)
+                .setUv(u, v)
+                .setOverlay(OverlayTexture.NO_OVERLAY)
+                .setLight(light)
+                .setNormal(pose, normal, 0.0F, 0.0F);
+    }
+
     @Override
     public void submit(SlidingPanelsRenderState state, PoseStack poseStack,
                        SubmitNodeCollector collector, CameraRenderState camera) {
-        if (state.panel == null) {
+        if (state.panel == null && state.painting == null) {
             return;
         }
         poseStack.pushPose();
         poseStack.translate(state.xOffset, 0.0F, state.zOffset);
-        collector.submitMovingBlock(poseStack, state.panel, 0);
+        if (state.panel != null) {
+            collector.submitMovingBlock(poseStack, state.panel, 0);
+        }
         // Inside the same translation, so the cracks travel with the panel rather than staying
         // behind on the block the panel came from.
-        if (state.breakProgress != null && !state.breakingParts.isEmpty()) {
+        if (state.panel != null && state.breakProgress != null && !state.breakingParts.isEmpty()) {
             collector.submitBreakingBlockModel(
                     poseStack, state.breakingParts, state.breakProgress.progress());
         }
+        // The painting travels with the panel and turns on its own, so it takes the same
+        // translation and adds a rotation of its own.
+        submitPainting(state, poseStack, collector);
         poseStack.popPose();
     }
 }

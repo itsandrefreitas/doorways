@@ -90,4 +90,9 @@ public class DoorwaysGameTests {
     public void onlyTheAnchorDrops(GameTestHelper helper) {
         DoorwayScenarios.onlyTheAnchorDrops(helper);
     }
+
+    @GameTest(maxTicks = TICKS)
+    public void paintingSurvivesTheDoorOpening(GameTestHelper helper) {
+        DoorwayScenarios.paintingSurvivesTheDoorOpening(helper);
+    }
 }

@@ -125,6 +125,17 @@ public enum DoorStyle {
     }
 
     /**
+     * Whether a painting can be applied to this style.
+     *
+     * <p>Only the papered one. A fusuma's panel is the canvas of the room and has been painted
+     * for as long as there have been fusuma; a pane of glass is not a canvas, and a door with a
+     * hinge is a different object with a frame around its face.
+     */
+    public boolean paintable() {
+        return this == FUSUMA;
+    }
+
+    /**
      * How this style divides at a given width.
      *
      * <p>Sliding doors do not get the default: a sliding leaf is always

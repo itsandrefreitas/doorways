@@ -1,5 +1,6 @@
 package com.doorways.block;
 
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -10,6 +11,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.DoubleHighBlockItem;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 
@@ -74,6 +76,31 @@ public final class DoorwaysContent {
         ResourceKey<Item> key = ResourceKey.create(
                 Registries.ITEM, Identifier.fromNamespaceAndPath(modId, name));
         return registrar.item(key, () -> new Item(new Item.Properties().setId(key)));
+    }
+
+    private static final Map<DoorPattern, Supplier<Item>> PAINTINGS =
+            new EnumMap<>(DoorPattern.class);
+
+    /**
+     * Registers every painting there is.
+     *
+     * <p>The suppliers are kept because the door has to hand a painting back when one is brushed
+     * off, and looking an item up by name at that moment would be a registry search for something
+     * we already had.
+     */
+    public static void registerPaintings(String modId, Registrar registrar) {
+        for (DoorPattern pattern : DoorPattern.values()) {
+            ResourceKey<Item> key = ResourceKey.create(Registries.ITEM,
+                    Identifier.fromNamespaceAndPath(modId, pattern.itemName()));
+            PAINTINGS.put(pattern, registrar.item(key,
+                    () -> new DoorPaintingItem(pattern, new Item.Properties().setId(key))));
+        }
+    }
+
+    /** The item that paints this pattern. Valid after {@link #registerPaintings}. */
+    public static Item painting(DoorPattern pattern) {
+        Supplier<Item> item = PAINTINGS.get(pattern);
+        return item == null ? Items.AIR : item.get();
     }
 
     /**

@@ -2,9 +2,17 @@ package com.doorways.block;
 
 import com.doorways.core.geometry.Swing;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Where a sliding panel is, between the two places its blockstate can describe.
@@ -65,6 +73,22 @@ public class SlidingPanelsBlockEntity extends BlockEntity {
      */
     private static final int SETTLE_TICKS = 3;
 
+    /** The name the painting is stored under. */
+    private static final String PATTERN_KEY = "pattern";
+
+    /**
+     * The painting on this panel, or null for bare paper.
+     *
+     * <p>The first thing this class has ever held that the world depends on. Everything else
+     * here is derived from the blockstate and can be thrown away without loss; this cannot, so
+     * it is saved to disk and sent to clients, and the two paths below exist for it alone.
+     *
+     * <p>It is kept on <b>every</b> panel of the leaf rather than on an anchor. A painting spans
+     * a whole leaf and each block draws its own quarter of it, so each block needs the answer
+     * anyway -- and asking a neighbour for it would be a lookup per block per frame.
+     */
+    private @Nullable DoorPattern pattern;
+
     /** Where the panel set off from, in columns along the wall. */
     private float from;
 
@@ -123,6 +147,49 @@ public class SlidingPanelsBlockEntity extends BlockEntity {
         // open position for its starting point and arrived without going anywhere.
         from = restingOffset(state);
         target = from;
+    }
+
+    /** The painting on this panel, or null. */
+    public @Nullable DoorPattern pattern() {
+        return pattern;
+    }
+
+    /** Puts a painting on this panel, or takes it off. The caller announces the change. */
+    public void setPattern(@Nullable DoorPattern pattern) {
+        this.pattern = pattern;
+        setChanged();
+    }
+
+    @Override
+    protected void saveAdditional(ValueOutput output) {
+        super.saveAdditional(output);
+        if (pattern != null) {
+            output.putString(PATTERN_KEY, pattern.id());
+        }
+    }
+
+    @Override
+    protected void loadAdditional(ValueInput input) {
+        super.loadAdditional(input);
+        // An unknown name becomes no painting rather than a crash: a world saved with a mod
+        // version that had a pattern this one does not know still opens, and the door is bare.
+        pattern = input.getString(PATTERN_KEY).map(DoorPattern::byId).orElse(null);
+    }
+
+    /**
+     * The two halves of telling the client. {@code getUpdateTag} is what a chunk carries when it
+     * is sent whole; {@code getUpdatePacket} is what a single block change carries afterwards.
+     * Both are needed -- with only the second, a door already painted when you arrive is bare
+     * until someone touches it.
+     */
+    @Override
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        return saveCustomOnly(registries);
+    }
+
+    @Override
+    public @Nullable Packet<ClientGamePacketListener> getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     private static float restingOffset(BlockState state) {

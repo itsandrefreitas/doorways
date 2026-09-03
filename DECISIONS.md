@@ -4,7 +4,7 @@ The project started from a Portuguese specification document, kept outside this 
 This document records the **explicit later changes** that the spec itself anticipates, settles
 the decisions it left open, and is the source of truth wherever the two disagree.
 
-Status: **v0.5** · Last updated: 2026-09-03
+Status: **v0.6** · Last updated: 2026-09-03
 
 This is not a changelog. It records *why* each non-obvious choice was made — including the ones
 that were wrong first. If you are here to contribute, this file is worth more than the code.
@@ -409,6 +409,72 @@ the daemon itself runs on it. Removed.
 > was never verified against anything.
 
 Gradle stays on **9.5.1**, as Fabric recommends.
+
+---
+
+## D-39 — Paintings live in the block entity, and are drawn over the door
+
+A fusuma is the wall of the room, and it has been painted for as long as fusuma have existed.
+Nine paintings can be put on one — pine, bamboo, cherry, autumn maple, wave, waterfall, mountain,
+moon and koi — applied with the painting in hand and taken off with a brush.
+
+### Where a painting lives, and the arithmetic that decided it
+
+The 24 fusuma carry 9,216 blockstates between them (D-38). A property multiplies that by its
+number of values, so nine paintings as a blockstate property, or as a block per painting the way
+copper does it, would be **82,944** — three times everything the mod has, to hold a decoration.
+
+So the painting lives in the block entity that sliding doors already have, and costs a door with
+no painting on it nothing at all. That has a consequence worth naming: `SlidingPanelsBlockEntity`
+held nothing the world depended on — a door that lost it would snap instead of gliding and lose
+nothing else — and now it holds something a player made. It is saved, it is synchronised on both
+paths (the chunk's tag and the single-block packet, because with only the second a door already
+painted when you arrive is bare until someone touches it), and it is the first thing in this mod
+a player can lose.
+
+### It is drawn over the door, not baked into it
+
+A painting is not in any model, so the chunk's mesh cannot draw it. It is a decal: two quads,
+one per face, a hair in front of the panel, submitted by the same renderer that moves the panels.
+That costs nothing when there is no painting, follows the panel as it slides, and folds the
+picture in half when the door opens — which is what a set of fusuma does.
+
+**The canvas is the whole door**, not one leaf and not one block: 32×32 pixels on a 2-wide door
+and 64×32 on a 4-wide one, with each block drawing its own slice. A wide door therefore gets a
+wider picture rather than the same picture stretched.
+
+Two mistakes are worth recording because both looked plausible:
+
+- **Reversing each panel in place for the back of the door.** It keeps every panel readable and
+  breaks every join, because seen from behind the panels are in the opposite order. The back
+  shows the *opposite* slice, read backwards.
+- **Clearing the door to air before rewriting it when it opens.** That had always been wasted
+  work for a door that occupies the same columns open and shut, and it became a bug the moment
+  the block entity held something: opening a painted fusuma wiped the painting, silently. It is
+  now guarded by `layout.movesBlocks()` — did the door change *place*, not did it change state —
+  and `paintingSurvivesTheDoorOpening` exists so that it cannot come back.
+
+### The pictures are code, and the failures are in the comments
+
+Every painting is drawn by a function from a handful of marks — a stroke that tapers, a fan of
+short strokes, a mass with a broken edge, a pale silhouette for distance, the moon as unpainted
+paper, the painter's seal. That is what lets a motif recompose itself for a wider door instead of
+being stretched across it, and what makes a tenth painting a function rather than a file.
+
+The generator carries its rejected attempts as comments, with the reason, because each was a
+plausible idea that a later reader would otherwise try again:
+
+| Tried | Why it failed |
+|---|---|
+| A mist band behind the subject | Dots read as dirt on the paper, soft lines as ruled underlines. Sixteen pixels to a block is not enough for atmosphere; a **silhouette** carries distance where a gradient cannot |
+| Bark ticks beside the trunk | Loose pixels, not texture. At this size a trunk is a stroke |
+| Diagonal patterns filling rock and mountain | Machine hatching. Stone is **angular** and solid, and that is what tells it from foliage |
+| One long branch reaching across a wide door | 26 pixels of branch is a pole |
+| A crane, standing and then flying | What makes a crane a crane is its proportions, and proportions are the first thing to go at this size. Replaced by koi: a teardrop and a tail, which survives |
+| The crane in white on white paper | Invisible. These birds are always drawn outlined, and that is why |
+
+The pine is the one motif drawn twice over: it began as tiered shelves of needles, which is the
+truer pine and the worse picture, and ended with the maple's shape in evergreen colours.
 
 ---
 

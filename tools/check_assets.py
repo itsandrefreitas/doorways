@@ -33,7 +33,8 @@ def names(*path):
     if not os.path.isdir(directory):
         problems.append("missing directory: " + directory)
         return set()
-    return {f.rsplit(".", 1)[0] for f in os.listdir(directory)}
+    return {f.rsplit(".", 1)[0] for f in os.listdir(directory)
+            if os.path.isfile(os.path.join(directory, f))}
 
 
 def expect(condition, message):
@@ -94,6 +95,25 @@ with io.open(os.path.join(ASSETS, "lang", "en_us.json"), encoding="utf-8") as f:
     lang = json.load(f)
 report("translations", {d for d in doors if f"block.doorways.{d}" not in lang})
 
+# The paintings are the one set of textures nothing points at: they are not in any model, and
+# the renderer asks the atlas for them by name at the moment it draws one. The list therefore
+# comes from the textures themselves, and everything else is checked against it.
+# A painting spans the whole door, so it needs one canvas per width a sliding door comes in.
+PAINTING_WIDTHS = (2, 4)
+canvases = names(ASSETS, "textures", "block", "painting")
+PAINTINGS = {canvas.rsplit("_", 1)[0] for canvas in canvases}
+PAINTING_ITEMS = {"fusuma_" + painting for painting in PAINTINGS}
+expect(PAINTINGS, "no paintings found -- run tools/gen_assets.py")
+report("painting canvases",
+       {f"{painting}_{width}" for painting in PAINTINGS for width in PAINTING_WIDTHS}
+       - canvases)
+report("painting item textures", PAINTING_ITEMS - names(ASSETS, "textures", "item"))
+report("painting item models", PAINTING_ITEMS - names(ASSETS, "models", "item"))
+report("painting item definitions", PAINTING_ITEMS - names(ASSETS, "items"))
+report("painting recipes", PAINTING_ITEMS - names(DATA, "recipe"))
+report("painting translations",
+       {item for item in PAINTING_ITEMS if f"item.doorways.{item}" not in lang})
+
 # Recipes may be grouped (name, name_1, name_2), so strip the suffix before matching.
 for recipe in names(DATA, "recipe"):
     with io.open(os.path.join(DATA, "recipe", recipe + ".json"), encoding="utf-8") as f:
@@ -102,8 +122,9 @@ for recipe in names(DATA, "recipe"):
         produced = result.split(":", 1)[1]
         # Everything else a recipe can make is a plain item: the hinge that every swinging door
         # starts from, and the track that every sliding one does.
-        expect(produced in doors or produced in COMPONENTS,
-               f"recipe {recipe} produces {result}, which is neither a door nor a component")
+        expect(produced in doors or produced in COMPONENTS or produced in PAINTING_ITEMS,
+               f"recipe {recipe} produces {result}, which is not a door, a component "
+               "or a painting")
 
 # A loot table may only name properties the door actually has.
 #

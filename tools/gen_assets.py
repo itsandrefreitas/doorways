@@ -9,6 +9,7 @@ Run it with the client jar within reach:
     python tools/gen_assets.py <project-root>
 """
 import json
+import math
 import os
 import struct
 import sys
@@ -794,12 +795,759 @@ def main():
                 })
                 n += 1
 
+    n += write_paintings(lang)
     n += write_neoforge_data_maps()
     write_json(os.path.join(ASSETS, "lang", "en_us.json"), dict(sorted(lang.items())))
     n += 5
 
     doors = sum(len(m) * len(w) for m, w in STYLES.values())
     print(f"{n} files, {len(MATERIALS)} materials, {len(STYLES)} styles, {doors} doors")
+
+
+# ------------------------------------------------------- paintings for the fusuma
+#
+# A fusuma is the wall of the room, and it has been painted for as long as fusuma have existed.
+# The canvas is the whole door: two panels across or four, always two blocks tall, so 32x32 or
+# 64x32 pixels. Each block draws its own slice and the slices meet.
+#
+# Nothing here is sampled. D-02's rule -- colours come from the vanilla textures -- is about
+# matching materials the player already knows; a painting matches nothing, and takes its palette
+# from what these were actually painted with: one stick of sumi ink ground to four strengths,
+# two greens, and a single red for the seal.
+PAINTING_HEIGHT = 32
+
+# Sumi ink in four values, and one accent. A fusuma was painted with a single black stick ground
+# to different strengths, so most of a picture is one colour used four ways.
+INK = (26, 24, 22, 255)
+INK_MID = (62, 58, 54, 240)
+INK_SOFT = (104, 100, 92, 210)
+INK_WASH = (150, 146, 136, 120)
+PINE_DARK = (38, 58, 42, 255)
+PINE_MID = (64, 92, 62, 245)
+PINE_LIGHT = (96, 124, 84, 225)
+SEAL = (158, 46, 38, 245)
+
+
+# Colours the pine did not need. Each is one family in three values, because that is what a
+# picture painted with a few pigments looks like.
+BAMBOO = (86, 122, 62, 255)
+BAMBOO_MID = (112, 148, 78, 245)
+BAMBOO_PALE = (146, 174, 112, 220)
+BLOSSOM = (222, 158, 178, 245)
+BLOSSOM_PALE = (240, 202, 214, 235)
+BLOSSOM_HEART = (198, 108, 134, 250)
+AUTUMN = (186, 92, 44, 250)
+AUTUMN_DEEP = (150, 58, 34, 250)
+AUTUMN_PALE = (214, 146, 74, 235)
+WATER = (72, 104, 138, 245)
+WATER_DEEP = (44, 70, 102, 250)
+WATER_PALE = (146, 176, 200, 220)
+FOAM = (238, 242, 246, 245)
+SNOW = (240, 242, 244, 240)
+CRANE = (246, 246, 242, 250)
+MOONLIGHT = (246, 226, 158, 240)
+MOON_HALO = (228, 200, 132, 150)
+NIGHT = (78, 92, 128, 235)
+NIGHT_DEEP = (52, 62, 96, 245)
+
+
+def canvas(width_blocks):
+    return [[NONE] * (16 * width_blocks) for _ in range(PAINTING_HEIGHT)]
+
+
+def put(px, x, y, colour):
+    if 0 <= y < len(px) and 0 <= x < len(px[0]):
+        px[y][x] = colour
+
+
+def blot(px, x, y, radius, colour):
+    """A round dab, which is what the end of a brush leaves."""
+    r = int(math.ceil(radius))
+    for dy in range(-r, r + 1):
+        for dx in range(-r, r + 1):
+            if dx * dx + dy * dy <= radius * radius:
+                put(px, x + dx, y + dy, colour)
+
+
+def stroke(px, points, start_width, end_width, colour):
+    """A brush stroke through a series of points, thinning as it goes.
+
+    Tapering is most of what makes a stroke look painted rather than drawn: a branch that is
+    three pixels wide at the trunk and one at the tip reads as a branch, and one that is two
+    pixels wide throughout reads as a wire.
+    """
+    total = 0.0
+    for i in range(len(points) - 1):
+        total += math.dist(points[i], points[i + 1])
+    walked = 0.0
+    for i in range(len(points) - 1):
+        (x0, y0), (x1, y1) = points[i], points[i + 1]
+        steps = max(int(math.dist((x0, y0), (x1, y1)) * 2), 1)
+        for s in range(steps + 1):
+            t = s / steps
+            x = x0 + (x1 - x0) * t
+            y = y0 + (y1 - y0) * t
+            along = (walked + math.dist((x0, y0), (x1, y1)) * t) / max(total, 0.001)
+            blot(px, round(x), round(y),
+                 start_width + (end_width - start_width) * along, colour)
+        walked += math.dist((x0, y0), (x1, y1))
+
+
+def needle_fan(px, cx, cy, length, spread, tilt, density=22):
+    """A cluster of pine needles: short strokes radiating from one point.
+
+    Drawn as strokes rather than as a blob because that is what pine reads as at any size -- the
+    silhouette of a pine cluster is spiky, and a smooth ellipse reads as a bush.
+    """
+    for i in range(density):
+        angle = tilt + spread * (i / (density - 1) - 0.5)
+        far = length * (0.80 + 0.20 * ((i * 7) % 5) / 4.0)
+        x1 = cx + math.cos(angle) * far
+        y1 = cy - math.sin(angle) * far
+        shade = PINE_DARK if i % 3 else PINE_MID
+        stroke(px, [(cx, cy), (x1, y1)], 0.7, 0.3, shade)
+    # a few lighter needles on top, so the mass has a lit side
+    for i in range(density // 3):
+        angle = tilt + spread * ((i + 0.5) / (density // 3) - 0.5) * 0.8
+        x1 = cx + math.cos(angle) * length * 0.6
+        y1 = cy - math.sin(angle) * length * 0.6
+        stroke(px, [(cx, cy), (x1, y1)], 0.6, 0.3, PINE_LIGHT)
+
+
+def wash(px, cx, cy, rx, ry):
+    """The solid heart of a foliage mass; the fan of needles breaks up its edge."""
+    for y in range(cy - ry, cy + ry + 1):
+        for x in range(cx - rx, cx + rx + 1):
+            nx = (x - cx) / max(rx, 1)
+            ny = (y - cy) / max(ry, 1)
+            if nx * nx + ny * ny <= 1.0:
+                if 0 <= y < len(px) and 0 <= x < len(px[0]) and px[y][x] == NONE:
+                    px[y][x] = PINE_DARK
+
+
+def seal_mark(px, x, y):
+    """The painter's seal. Two pixels of red in a picture of black is the whole accent."""
+    for dy in range(5):
+        for dx in range(4):
+            put(px, x + dx, y + dy, SEAL)
+    put(px, x + 1, y + 1, NONE)
+    put(px, x + 2, y + 2, NONE)
+    put(px, x + 1, y + 3, NONE)
+
+
+def lesser_pine(px, base_x, base_y, height, ink, tiers):
+    """A whole pine, smaller and simpler, for the ones standing further away.
+
+    Not a copy of the big one: a distant tree is read by its silhouette, so it gets a trunk,
+    a branch to each mass, and no bark and no ground. Trying to draw the same tree smaller is
+    what makes a background look like a foreground out of focus.
+    """
+    top = base_y - height
+    trunk = [(base_x, base_y), (base_x + 1, base_y - height * 0.55), (base_x + 2, top)]
+    stroke(px, trunk, 0.9, 0.35, ink)
+    for i, (dx, dy, length, tilt) in enumerate(tiers):
+        cx, cy = base_x + dx, base_y - height + dy
+        # Every mass hangs off a branch. Without them the tiers read as three separate bushes
+        # standing in a row, which is exactly how it looked the first time.
+        along = (base_y - cy) / max(height, 1)
+        trunk_x = base_x + 2 * (1.0 - along)
+        stroke(px, [(trunk_x, cy + 1), (cx, cy)], 0.7, 0.3, ink)
+        wash(px, cx, cy, max(int(length * 0.6), 2), 2)
+        needle_fan(px, cx, cy, length, 1.5, tilt, density=11 - i * 2)
+
+
+def moon(px, cx, cy, radius):
+    """The moon: paper left unpainted, with a ring drawn round it and a halo beyond.
+
+    Painted the way it is on a real screen -- the disc is the paper itself and the brush goes
+    round it, so the brightest thing in the picture costs no pigment at all.
+
+    Two rings rather than one. A single thin ring read as a drawn circle; a firm inner edge with
+    a broken halo outside it reads as light.
+    """
+    for y in range(cy - radius - 3, cy + radius + 4):
+        for x in range(cx - radius - 3, cx + radius + 4):
+            d = math.dist((x, y), (cx, cy))
+            if radius - 0.5 <= d <= radius + 0.6:
+                put(px, x, y, INK_SOFT)
+            elif radius + 0.6 < d <= radius + 1.7:
+                put(px, x, y, INK_WASH)
+
+
+def rock(px, cx, cy, half_width, height):
+    """A rock at the foot of the tree: a flat-topped mass, dark, with one lit edge."""
+    # Solid, with one lit edge and a couple of cracks. Filling it with a diagonal pattern was
+    # the first attempt and read as hatching applied by a machine.
+    for y in range(cy - height, cy + 1):
+        span = int(half_width * (1.0 - 0.45 * (cy - y) / max(height, 1)))
+        for x in range(cx - span, cx + span + 1):
+            put(px, x, y, INK_MID)
+    for x in range(cx - half_width + 1, cx + half_width - 1):
+        put(px, x, cy - height, INK_SOFT)
+    for k in range(1, height):
+        put(px, cx - 1 + (k % 2), cy - k, INK)
+
+
+def far_hill(px, cx, cy, half_width, height):
+    """A hill on the horizon, in the palest ink there is. A shape, not a haze.
+
+    Mist was tried twice and read as dirt both times; a silhouette carries distance at this size
+    where a gradient cannot.
+    """
+    for y in range(cy - height, cy + 1):
+        # Wide and low, and rounded rather than pointed: a ridge seen from far away is almost
+        # all horizon. Drawn tall it stops being distance and becomes a boulder, which is what
+        # the first attempt looked like.
+        span = int(half_width * (1.0 - (cy - y) / max(height + 1, 1)) ** 0.62)
+        for x in range(cx - span, cx + span + 1):
+            if 0 <= x < len(px[0]) and px[y][x] == NONE:
+                put(px, x, y, INK_WASH)
+
+
+def cluster_mass(px, cx, cy, radius, colour, edge_colour):
+    """A round mass with a broken edge. The break comes from the coordinates rather than from
+    randomness, so the same picture is drawn the same way every time."""
+    r = int(math.ceil(radius))
+    for dy in range(-r, r + 1):
+        for dx in range(-r, r + 1):
+            d = math.hypot(dx, dy)
+            if d > radius:
+                continue
+            edge = d > radius - 1.2
+            if edge and (dx * 3 + dy * 5) % 4 == 0:
+                continue
+            put(px, cx + dx, cy + dy, edge_colour if edge else colour)
+
+
+def pine(width_blocks):
+    """An evergreen, drawn the way the maple is drawn.
+
+    It began as a tiered pine -- horizontal shelves of needles on long branches -- which is the
+    truer pine and the worse picture: at this size the shelves read as steps. The maple's shape
+    won on looking at the two side by side, so this is that tree in evergreen colours, with a
+    moon behind it.
+
+    On four panels the tree does not stretch. The trunk moves to the second panel, the crown
+    opens both ways, and a smaller tree stands further off.
+    """
+    px = canvas(width_blocks)
+    w = 16 * width_blocks
+    wide = width_blocks >= 4
+    # The same footing as the maple: out of the left corner, leaning into the paper. It stood in
+    # the middle of a wide door for a while, with a branch reaching back over the first panel to
+    # balance it, and the maple's placing simply reads better.
+    base = 6 if wide else 4
+
+    # everything behind the tree first
+    moon(px, w - 9 if wide else 25, 7, 5 if wide else 4)
+    if wide:
+        far_hill(px, w - 24, 29, 19, 5)
+        far_hill(px, w - 7, 29, 12, 4)
+
+    # the trunk, out of the ground and leaning
+    stroke(px, [(base, 31), (base + 2, 24), (base + 5, 18), (base + 7, 12)], 1.2, 0.4, INK)
+
+    limbs = [([(base + 2, 24), (base + 8, 22), (base + 12, 23)], 0.8),
+             ([(base + 5, 18), (base + 10, 15), (base + 14, 16)], 0.7),
+             ([(base + 7, 12), (base + 11, 9), (base + 14, 10)], 0.6)]
+    for points, thickness in limbs:
+        stroke(px, points, thickness, 0.3, INK)
+
+    masses = [(base + 13, 22, 3.6, PINE_DARK, PINE_MID),
+              (base + 15, 15, 3.2, PINE_DARK, PINE_LIGHT),
+              (base + 15, 9, 2.8, PINE_MID, PINE_LIGHT)]
+    # Three overlapping lobes each, not one disc: a round mass of foliage reads as fruit.
+    for cx, cy, r, colour, edge in masses:
+        for dx, dy, k in ((0, 0, 1.0), (-r * 0.8, r * 0.4, 0.7), (r * 0.7, r * 0.5, 0.6)):
+            cluster_mass(px, round(cx + dx), round(cy + dy), r * k, colour, edge)
+
+    rock(px, base + 8 if wide else base + 7, 31, 4, 3)
+    for x in range(max(base - 3, 1), min(base + 18, w - 2)):
+        if (x * 5) % 7 > 4:
+            put(px, x, 30, INK_SOFT)
+
+    if wide:
+        lesser_pine(px, w - 12, 31, 12, INK_SOFT,
+                    ((-3, 4, 3.5, 0.15), (2, 0, 3.0, 0.35)))
+        for bx, by in ((base + 26, 7), (base + 32, 4)):
+            put(px, bx, by, INK_MID)
+            put(px, bx - 1, by - 1, INK_MID)
+            put(px, bx + 1, by - 1, INK_MID)
+
+    seal_mark(px, w - 6, 26)
+    return px
+
+
+def leaf(px, x0, y0, x1, y1, colour, width=1.0):
+    """A single leaf: one stroke that swells in the middle and comes to a point."""
+    steps = max(int(math.dist((x0, y0), (x1, y1)) * 2), 1)
+    for s in range(steps + 1):
+        t = s / steps
+        swell = math.sin(t * math.pi) * width
+        blot(px, round(x0 + (x1 - x0) * t), round(y0 + (y1 - y0) * t), 0.4 + swell, colour)
+
+
+def cluster(px, cx, cy, radius, colour, edge_colour, heart=None):
+    """A round mass with a broken edge -- blossom, foliage, foam.
+
+    The break comes from the coordinates rather than from randomness, so the same picture is
+    drawn the same way every time and the generator stays reproducible.
+    """
+    r = int(math.ceil(radius))
+    for dy in range(-r, r + 1):
+        for dx in range(-r, r + 1):
+            d = math.hypot(dx, dy)
+            if d > radius:
+                continue
+            edge = d > radius - 1.2
+            if edge and (dx * 3 + dy * 5) % 4 == 0:
+                continue
+            put(px, cx + dx, cy + dy, edge_colour if edge else colour)
+    if heart is not None:
+        put(px, cx, cy, heart)
+
+
+# ------------------------------------------------------------------ bamboo
+def bamboo(width_blocks):
+    """A few culms, a rock, and birds.
+
+    The first version filled the paper with bamboo and nothing else, and a thicket is not a
+    picture: with every stalk the same and no space between them there is nothing to look at.
+    Fewer culms, further apart, at three depths -- and something that is not bamboo to look at
+    them.
+    """
+    px = canvas(width_blocks)
+    w = 16 * width_blocks
+
+    # near, middle, far: each paler and thinner than the one in front
+    culms = [(7, 31, 4, BAMBOO, 1.0), (12, 31, 11, BAMBOO_MID, 0.8), (3, 31, 15, BAMBOO_PALE, 0.6)]
+    if width_blocks >= 4:
+        culms += [(26, 31, 6, BAMBOO, 1.0), (33, 31, 13, BAMBOO_PALE, 0.6),
+                  (w - 12, 31, 9, BAMBOO_MID, 0.8)]
+    for x, base_y, top, colour, thickness in culms:
+        stroke(px, [(x, base_y), (x + 1, (base_y + top) // 2), (x + 1, top)],
+               0.9 * thickness, 0.6 * thickness, colour)
+        # nodes: the joints, which are what makes a green line read as bamboo
+        for y in range(top + 4, base_y, 7):
+            put(px, x, y, INK_MID)
+            put(px, x + 1, y, INK_MID)
+        # leaves, in threes, and only on two joints: a leaf at every node is a hedge
+        for i, y in enumerate(range(top + 3, base_y - 10, 9)):
+            side = 1 if (i + x) % 2 else -1
+            for k in range(3):
+                leaf(px, x + 1, y, x + 1 + side * (4 + k), y - 3 + k * 2, colour, 0.5)
+
+    rock(px, 19 if width_blocks < 4 else 20, 31, 5, 3)
+    for x in range(2, (18 if width_blocks < 4 else w - 12)):
+        if (x * 5) % 7 > 4:
+            put(px, x, 30, INK_SOFT)
+
+    birds = ((24, 7), (28, 4)) if width_blocks < 4 else ((44, 8), (49, 5), (54, 10))
+    for bx, by in birds:
+        put(px, bx, by, INK_MID)
+        put(px, bx - 1, by - 1, INK_MID)
+        put(px, bx + 1, by - 1, INK_MID)
+    if width_blocks >= 4:
+        far_hill(px, w - 8, 30, 10, 5)
+    seal_mark(px, w - 6, 26)
+    return px
+
+
+# ------------------------------------------------------------------ cherry
+def cherry(width_blocks):
+    """A branch of blossom, and petals already falling. Pink is the only pigment."""
+    px = canvas(width_blocks)
+    w = 16 * width_blocks
+    # Thin and curved. A thick straight branch across the top reads as a beam with flowers
+    # glued to it, which is what the first attempt looked like.
+    branch = ([(0, 3), (8, 8), (17, 6), (26, 11), (36, 8), (46, 12), (w - 3, 9)]
+              if width_blocks >= 4 else [(0, 3), (7, 8), (14, 7), (19, 11)])
+    stroke(px, branch, 0.9, 0.35, INK)
+    spurs = [((6, 6), (5, 12)), ((12, 7), (14, 13)), ((17, 7), (19, 3))]
+    if width_blocks >= 4:
+        spurs += [((21, 9), (23, 15)), ((30, 9), (33, 15)), ((40, 9), (43, 4)),
+                  ((46, 12), (49, 18)), ((52, 11), (55, 6)), ((w - 8, 10), (w - 5, 16))]
+    for a, b in spurs:
+        stroke(px, [a, b], 0.7, 0.3, INK_MID)
+    hearts = [(5, 13), (14, 14), (19, 2), (9, 8), (17, 7)]
+    if width_blocks >= 4:
+        hearts += [(23, 16), (33, 16), (36, 8), (43, 3), (49, 19), (55, 5), (w - 5, 17),
+                   (w - 10, 10)]
+    for i, (cx, cy) in enumerate(hearts):
+        cluster(px, cx, cy, 3.0 if i % 2 else 2.4, BLOSSOM, BLOSSOM_PALE, BLOSSOM_HEART)
+    # petals on their way down: three pixels, well apart
+    petals = [(7, 20), (13, 25), (20, 22)] if width_blocks < 4 else [
+        (7, 20), (13, 25), (20, 22), (28, 24), (36, 20), (44, 27)]
+    for cx, cy in petals:
+        put(px, cx, cy, BLOSSOM)
+        put(px, cx + 1, cy + 1, BLOSSOM_PALE)
+    seal_mark(px, w - 6, 26)
+    return px
+
+
+# ------------------------------------------------------------------ autumn
+def autumn(width_blocks):
+    """Maple in autumn: a branch from the low corner, and leaves gone over to red."""
+    px = canvas(width_blocks)
+    w = 16 * width_blocks
+    base = 4 if width_blocks < 4 else 6
+    # behind the tree, as in the pine: the same moon, and the same reason for it
+    moon(px, w - 8, 7, 5 if width_blocks >= 4 else 4)
+    stroke(px, [(base, 31), (base + 2, 24), (base + 5, 18), (base + 7, 12)], 1.2, 0.4, INK)
+    limbs = [([(base + 2, 24), (base + 8, 22), (base + 12, 23)], 0.8),
+             ([(base + 5, 18), (base + 10, 15), (base + 14, 16)], 0.7),
+             ([(base + 7, 12), (base + 11, 9), (base + 14, 10)], 0.6)]
+    if width_blocks >= 4:
+        limbs.append(([(base + 6, 16), (base + 14, 13), (base + 21, 15)], 0.7))
+    for points, thickness in limbs:
+        stroke(px, points, thickness, 0.3, INK)
+    masses = [(base + 13, 22, 3.4, AUTUMN, AUTUMN_PALE),
+              (base + 15, 15, 3.0, AUTUMN_DEEP, AUTUMN),
+              (base + 15, 9, 2.6, AUTUMN, AUTUMN_PALE)]
+    if width_blocks >= 4:
+        masses += [(base + 22, 14, 3.2, AUTUMN_DEEP, AUTUMN),
+                   (base + 18, 19, 2.4, AUTUMN, AUTUMN_PALE)]
+    # Three overlapping lobes each, not one disc: a round mass of leaves reads as fruit.
+    for cx, cy, r, colour, edge in masses:
+        for dx, dy, k in ((0, 0, 1.0), (-r * 0.8, r * 0.4, 0.7), (r * 0.7, r * 0.5, 0.6)):
+            cluster(px, round(cx + dx), round(cy + dy), r * k, colour, edge)
+    fallen = [(base + 4, 28), (base + 9, 29), (base + 17, 27)]
+    if width_blocks >= 4:
+        # a second, younger maple against the far edge, and leaves blown the length of the floor
+        stroke(px, [(w - 11, 31), (w - 10, 25), (w - 8, 20)], 0.9, 0.35, INK_MID)
+        stroke(px, [(w - 10, 25), (w - 14, 23)], 0.6, 0.3, INK_MID)
+        for cx, cy, r in ((w - 7, 19, 2.6), (w - 14, 22, 2.0), (w - 11, 15, 2.2)):
+            cluster(px, cx, cy, r, AUTUMN, AUTUMN_PALE)
+        fallen += [(w - 20, 28), (w - 26, 29), (w - 32, 27), (w - 38, 29)]
+    for cx, cy in fallen:
+        put(px, cx, cy, AUTUMN_PALE)
+        put(px, cx + 1, cy, AUTUMN)
+    for x in range(1, w - 2):
+        if (x * 5) % 7 > 4:
+            put(px, x, 30, INK_SOFT)
+    seal_mark(px, w - 6, 26)
+    return px
+
+
+# ------------------------------------------------------------------ wave
+def wave(width_blocks):
+    """A wave at the moment it curls: a long back, a lip that overhangs, and foam falling off it.
+
+    The first attempt drew the body as a stack of rising strokes and came out as an arrowhead.
+    A wave is read from its **overhang** -- the crest leaning further out than the water beneath
+    it -- so that is what is drawn first and everything else hangs off it.
+    """
+    px = canvas(width_blocks)
+    w = 16 * width_blocks
+    crest_x = 13 if width_blocks < 4 else 22
+
+    # The back of the wave: three lines following the same rise, with paper between them. Filled
+    # solid it stopped being water and became an iceberg -- what says "water" here is that you
+    # can see through it.
+    back = [(w - 2, 27), (crest_x + 13, 25), (crest_x + 6, 20), (crest_x, 13)]
+    for depth, colour in ((0, WATER_DEEP), (3, WATER), (6, WATER_PALE)):
+        stroke(px, [(x, y + depth) for x, y in back], 1.0, 0.7, colour)
+
+    # the lip: over the top and back on itself, which is the whole gesture
+    stroke(px, [(crest_x, 13), (crest_x - 5, 11), (crest_x - 9, 15)], 1.2, 0.7, WATER_DEEP)
+    cluster(px, crest_x - 4, 11, 3.0, FOAM, WATER_PALE)
+    cluster(px, crest_x - 9, 15, 2.2, FOAM, WATER_PALE)
+
+    # foam falling from under the lip
+    for i, (dx, length) in enumerate(((-8, 5), (-5, 7), (-2, 4), (1, 6))):
+        stroke(px, [(crest_x + dx, 16), (crest_x + dx - 1, 16 + length)], 0.8, 0.4,
+               FOAM if i % 2 else WATER_PALE)
+
+    # the trough in front, in lines that flatten with distance
+    for i, y in enumerate(range(23, 31, 2)):
+        stroke(px, [(1, y + 1), (w // 3, y), (w - 2, y + 1)], 0.7, 0.7,
+               WATER if i % 2 else WATER_PALE)
+
+    if width_blocks >= 4:
+        stroke(px, [(w - 26, 21), (w - 20, 19), (w - 14, 21)], 0.9, 0.5, WATER)
+        cluster(px, w - 20, 18, 2.2, FOAM, WATER_PALE)
+        far_hill(px, w - 9, 19, 8, 4)
+    seal_mark(px, w - 6, 26)
+    return px
+
+
+# ------------------------------------------------------------------ waterfall
+def waterfall(width_blocks):
+    """A fall between two cliffs, with the water drawn by what is left unpainted.
+
+    Three attempts. A filled rectangle of stripes read as a barcode; round masses of ink read as
+    bushes. Rock is **angular** -- that is the whole difference between stone and foliage -- so
+    it is drawn as stacked slabs with straight edges and a lit top, and the water is a widening
+    sheet with a dark lip at the top and a splash where it lands.
+    """
+    px = canvas(width_blocks)
+    w = 16 * width_blocks
+    fall_x = 12 if width_blocks < 4 else 20
+
+    def cliff(x_outer, x_inner, top, bottom):
+        """One side of the gorge: slabs, each stepping in, each with a lit upper edge."""
+        step = 0
+        y = top
+        while y < bottom:
+            depth = min(5, bottom - y)
+            inner = x_inner + (2 if step % 2 else 0)
+            lo, hi = (min(x_outer, inner), max(x_outer, inner))
+            for yy in range(y, y + depth):
+                for xx in range(lo, hi + 1):
+                    put(px, xx, yy, INK_MID)
+            for xx in range(lo, hi + 1):
+                put(px, xx, y, INK_SOFT)
+            for xx in range(lo, hi + 1, 3):
+                put(px, xx, y + depth - 1, INK)
+            y += depth
+            step += 1
+
+    cliff(max(fall_x - 12, 0), fall_x - 4, 6, 28)
+    cliff(min(fall_x + 12, w - 1), fall_x + 4, 9, 28)
+
+    # the water: a sheet that widens as it falls, brightest in the middle
+    for y in range(6, 27):
+        spread = 3 + (y - 6) // 8
+        for x in range(fall_x - spread, fall_x + spread + 1):
+            edge = abs(x - fall_x) >= spread
+            put(px, x, y, WATER_PALE if edge else FOAM)
+    # the lip, dark, where the river goes over
+    for x in range(fall_x - 4, fall_x + 5):
+        put(px, x, 5, WATER_DEEP)
+        put(px, x, 6, WATER)
+
+    # where it lands: a splash, then rings that widen and fade
+    cluster(px, fall_x, 27, 4.0, FOAM, WATER_PALE)
+    for i, r in enumerate((6, 9, 12)):
+        for x in range(fall_x - r, fall_x + r + 1):
+            if (x + i) % 2 == 0 and 0 <= x < w:
+                put(px, x, 28 + i, WATER_PALE if i else FOAM)
+
+    # a pine on the clifftop, which is what gives the drop its scale
+    lesser_pine(px, max(fall_x - 10, 2), 6, 5, INK_MID, ((-2, 2, 3.0, 0.2), (2, -1, 2.5, 0.4)))
+    if width_blocks >= 4:
+        far_hill(px, w - 12, 26, 12, 7)
+        lesser_pine(px, w - 9, 26, 9, INK_SOFT, ((-2, 3, 3.0, 0.2), (2, -1, 2.5, 0.4)))
+        lesser_pine(px, w - 20, 27, 7, INK_SOFT, ((-2, 2, 2.5, 0.2),))
+    seal_mark(px, w - 6, 26)
+    return px
+
+
+# ------------------------------------------------------------------ mountain
+def mountain(width_blocks):
+    """Ridges one behind another, each fainter, with snow left as paper on the nearest."""
+    px = canvas(width_blocks)
+    w = 16 * width_blocks
+    peak_x = 13 if width_blocks < 4 else 22
+
+    # the near mountain, drawn as two slopes meeting
+    stroke(px, [(peak_x - 12, 29), (peak_x - 4, 16), (peak_x, 10)], 1.2, 0.8, INK)
+    stroke(px, [(peak_x, 10), (peak_x + 6, 18), (peak_x + 13, 29)], 1.2, 0.8, INK)
+    # Solid, with a fold or two picked out. A diagonal pattern across the face read as hatching
+    # rather than as stone.
+    for y in range(11, 29):
+        span = int((y - 10) * 0.95)
+        for x in range(peak_x - span, peak_x + span):
+            if px[y][x] == NONE:
+                put(px, x, y, INK_MID)
+    for k in range(4, 18, 4):
+        stroke(px, [(peak_x - k // 2, 12 + k), (peak_x - k, 20 + k)], 0.6, 0.4, INK)
+    # snow: the top left unpainted, with a broken line under it
+    for y in range(10, 15):
+        for x in range(peak_x - (y - 9), peak_x + (y - 9)):
+            put(px, x, y, SNOW if (x * 3 + y) % 5 else INK_WASH)
+
+    far_hill(px, peak_x - 16, 29, 12, 7)
+    if width_blocks >= 4:
+        far_hill(px, w - 12, 29, 14, 9)
+        far_hill(px, w - 26, 30, 10, 5)
+        moon(px, w - 8, 7, 4)
+    seal_mark(px, w - 6, 26)
+    return px
+
+
+# ------------------------------------------------------------------ moon
+def moon_night(width_blocks):
+    """A harvest moon over reeds and water.
+
+    The pine's moon is unpainted paper, which is how it is done in ink -- but a picture whose
+    whole subject is the moon cannot be made of nothing. This one is painted: warm yellow with a
+    halo, over reeds and water in night blue.
+    """
+    px = canvas(width_blocks)
+    w = 16 * width_blocks
+    cx = 20 if width_blocks < 4 else 40
+
+    for dy in range(-8, 9):
+        for dx in range(-8, 9):
+            d = math.hypot(dx, dy)
+            if d <= 5.4:
+                put(px, cx + dx, 11 + dy, MOONLIGHT)
+            elif d <= 7.4 and (dx * 3 + dy * 5) % 3:
+                put(px, cx + dx, 11 + dy, MOON_HALO)
+
+    # cloud bands across it, which is what makes it a moon rather than a lamp
+    for band_y, x0, x1 in ((9, cx - 11, cx + 6), (14, cx - 6, cx + 11)):
+        for x in range(x0, x1):
+            if (x * 3) % 5 > 1:
+                put(px, x, band_y, NIGHT)
+
+    # water below, in flat night-blue lines
+    for i, y in enumerate(range(26, 31)):
+        for x in range(1, w - 1):
+            if (x + i * 3) % 4 > 0:
+                put(px, x, y, NIGHT_DEEP if i % 2 else NIGHT)
+
+    reeds = [(4, 30, 14), (7, 30, 19), (11, 30, 12), (15, 30, 17)]
+    if width_blocks >= 4:
+        reeds += [(22, 30, 15), (27, 30, 21), (31, 30, 13),
+                  (w - 14, 30, 18), (w - 9, 30, 12), (w - 5, 30, 20)]
+    for x, base_y, top in reeds:
+        lean = 2 if x % 2 else -2
+        stroke(px, [(x, base_y), (x + lean // 2, (base_y + top) // 2), (x + lean, top)],
+               0.7, 0.35, NIGHT_DEEP)
+        for k in range(2):
+            leaf(px, x + lean, top + k * 3, x + lean * 3, top + 2 + k * 4, NIGHT, 0.4)
+
+    for bx, by in ((cx - 14, 5), (cx - 10, 3)):
+        put(px, bx, by, NIGHT_DEEP)
+        put(px, bx - 1, by - 1, NIGHT_DEEP)
+        put(px, bx + 1, by - 1, NIGHT_DEEP)
+    seal_mark(px, w - 6, 26)
+    return px
+
+
+# ------------------------------------------------------------------ koi
+def koi(width_blocks):
+    """Carp in water, seen from above.
+
+    This panel was a crane twice, standing and then flying, and neither read as a bird at
+    sixteen pixels to a block: too much of what makes a crane a crane is in its proportions, and
+    proportions are the first thing to go at this size. A carp is a teardrop and a tail. It is
+    also the older subject of the two on a screen at the water's edge.
+    """
+    px = canvas(width_blocks)
+    w = 16 * width_blocks
+
+    # the water first: flat bands, so the fish have something to be under
+    for i, y in enumerate(range(2, 31, 4)):
+        for x in range(1, w - 1):
+            if (x + i * 3) % 5 > 1:
+                put(px, x, y, WATER_PALE)
+
+    def carp(cx, cy, length, tilt, body, marks):
+        """One fish: a body that swells and tapers, a forked tail, two fins and an eye."""
+        dx, dy = math.cos(tilt), -math.sin(tilt)
+        for i in range(length):
+            t = i / (length - 1.0)
+            # widest a third of the way down, which is where a fish is widest
+            radius = 0.7 + 2.1 * math.sin(min(t * 1.35, 1.0) * math.pi) ** 0.8
+            blot(px, round(cx + dx * (i - length / 2)), round(cy + dy * (i - length / 2)),
+                 radius, body)
+        tail_x = cx + dx * (length / 2 + 1)
+        tail_y = cy + dy * (length / 2 + 1)
+        for spread in (-1.0, 1.0):
+            stroke(px, [(tail_x, tail_y),
+                        (tail_x + dx * 3 - dy * 3 * spread, tail_y + dy * 3 + dx * 3 * spread)],
+                   1.2, 0.5, body)
+        # fins, one each side, halfway along
+        for spread in (-1.0, 1.0):
+            fin_x = cx - dy * 2 * spread
+            fin_y = cy + dx * 2 * spread
+            stroke(px, [(cx, cy), (fin_x - dx, fin_y - dy)], 0.9, 0.4, body)
+        # the markings that make it a koi rather than a fish
+        for k, place in enumerate((-0.15, 0.15, 0.4)):
+            put(px, round(cx + dx * length * place), round(cy + dy * length * place), marks)
+        head_x = round(cx - dx * (length / 2 - 1))
+        head_y = round(cy - dy * (length / 2 - 1))
+        put(px, head_x, head_y, INK)
+
+    if width_blocks < 4:
+        carp(13, 12, 13, -0.35, AUTUMN, FOAM)
+        carp(18, 24, 10, 2.9, FOAM, AUTUMN)
+    else:
+        carp(14, 11, 14, -0.30, AUTUMN, FOAM)
+        carp(24, 23, 12, 2.85, FOAM, AUTUMN)
+        carp(42, 13, 13, 0.35, AUTUMN_DEEP, FOAM)
+        carp(53, 24, 10, 3.05, WATER_PALE, WATER)
+
+    # ripples, where a fish has just turned
+    for cx, cy, r in (((22, 8, 5),) if width_blocks < 4 else ((32, 7, 5), (48, 27, 6))):
+        for k in range(-r, r + 1):
+            put(px, cx + k, cy - round(math.sqrt(max(r * r - k * k, 0)) * 0.4), WATER)
+            put(px, cx + k, cy + round(math.sqrt(max(r * r - k * k, 0)) * 0.4), WATER)
+
+    seal_mark(px, w - 6, 26)
+    return px
+
+
+def painting_item_texture(accent):
+    """The painting rolled up: a sheet of paper with a stroke of its own motif on it.
+
+    The accent is what tells nine scrolls apart in a row of inventory slots. Without it they
+    were nine identical items and the player had to read every tooltip.
+    """
+    px = blank()
+    paper = (232, 226, 208, 255)
+    shade = (206, 198, 178, 255)
+    for y in range(3, 14):
+        for x in range(2, 14):
+            px[y][x] = paper if x < 12 else shade
+    for x in range(2, 14):
+        px[3][x] = shade
+        px[13][x] = shade
+    for y, x0, x1 in ((6, 5, 10), (8, 6, 11), (10, 4, 9)):
+        for x in range(x0, x1):
+            px[y][x] = accent
+    px[7][7] = INK
+    px[9][8] = INK
+    px[11][6] = INK
+    return px
+
+
+# Every painting: how to draw it, what crafts it, what it is called, and the colour its item
+# carries. The ingredient is the motif -- it is what makes the recipe guessable without a wiki.
+PAINTINGS = {
+    "pine": (pine, "minecraft:spruce_sapling", "Pine", PINE_DARK),
+    "bamboo": (bamboo, "minecraft:bamboo", "Bamboo", BAMBOO),
+    "cherry": (cherry, "minecraft:cherry_sapling", "Cherry Blossom", BLOSSOM),
+    "autumn": (autumn, "#minecraft:leaves", "Autumn Maple", AUTUMN),
+    "wave": (wave, "minecraft:kelp", "Great Wave", WATER),
+    "waterfall": (waterfall, "minecraft:prismarine_crystals", "Waterfall", WATER_PALE),
+    "mountain": (mountain, "minecraft:flint", "Mountain", INK_MID),
+    "moon": (moon_night, "minecraft:glowstone_dust", "Moon", MOONLIGHT),
+    "koi": (koi, "minecraft:tropical_fish", "Koi", AUTUMN),
+}
+
+# The widths a sliding door comes in, and therefore the canvases each painting needs.
+PAINTING_WIDTHS = (2, 4)
+
+
+def write_paintings(lang):
+    """Every painting, at every width a sliding door comes in."""
+    written = 0
+    for name, (draw, ingredient, label, accent) in PAINTINGS.items():
+        for width in PAINTING_WIDTHS:
+            write_png_sized(
+                os.path.join(ASSETS, "textures", "block", "painting",
+                             f"{name}_{width}.png"), draw(width))
+            written += 1
+        item = "fusuma_" + name
+        write_png(os.path.join(ASSETS, "textures", "item", item + ".png"),
+                  painting_item_texture(accent))
+        write_json(os.path.join(ASSETS, "models", "item", item + ".json"),
+                   {"parent": "item/generated", "textures": {"layer0": f"{MOD}:item/{item}"}})
+        write_json(os.path.join(ASSETS, "items", item + ".json"),
+                   {"model": {"type": "minecraft:model", "model": f"{MOD}:item/{item}"}})
+        write_json(os.path.join(DATA, "recipe", item + ".json"), {
+            "type": "minecraft:crafting_shapeless",
+            "category": "misc",
+            "ingredients": ["minecraft:paper", "minecraft:paper", ingredient],
+            "result": {"id": f"{MOD}:{item}"},
+        })
+        lang[f"item.{MOD}.{item}"] = label + " Fusuma Painting"
+        written += 4
+    return written
 
 
 def loot_table(block, width):

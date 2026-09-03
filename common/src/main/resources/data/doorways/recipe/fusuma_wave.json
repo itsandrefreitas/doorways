@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:paper",
+    "minecraft:paper",
+    "minecraft:kelp"
+  ],
+  "result": {
+    "id": "doorways:fusuma_wave"
+  }
+}

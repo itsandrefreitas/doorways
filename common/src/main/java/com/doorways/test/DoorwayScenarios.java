@@ -1,9 +1,12 @@
 package com.doorways.test;
 
 import com.doorways.Doorways;
+import com.doorways.block.DoorPattern;
 import com.doorways.block.DoorStyle;
 import com.doorways.block.DoorSwing;
 import com.doorways.block.DoorVariant;
+import com.doorways.block.DoorwaysContent;
+import com.doorways.block.SlidingPanelsBlockEntity;
 import com.doorways.block.WideDoorBlock;
 import com.doorways.block.WideDoorGeometry;
 import com.doorways.core.geometry.DoorLayout;
@@ -13,17 +16,21 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.DoorHingeSide;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The test scenarios, shared by both loaders.
@@ -465,6 +472,65 @@ public final class DoorwayScenarios {
             assertDrops(helper, columns.get(part).above(), 0);
         }
         helper.succeed();
+    }
+
+    /**
+     * A painting covers the whole door, survives it opening, and comes off with a brush.
+     *
+     * <p>The middle step is the one that matters. Opening a door rewrites every one of its
+     * blocks, and the rewrite used to clear them to air first -- which took the block entity
+     * with it, and the painting with that. Nothing about the door looked wrong afterwards: it
+     * opened, closed, dropped and rendered exactly as before, and the only symptom was that a
+     * player's painting had quietly stopped existing.
+     *
+     * <p>Four blocks wide on purpose. A painting spans the whole door, so this is also what
+     * proves it reaches the panels of the second leaf.
+     */
+    public static void paintingSurvivesTheDoorOpening(GameTestHelper helper) {
+        Block door = door("oak", 4, DoorStyle.FUSUMA);
+        BlockPos origin = new BlockPos(2, FLOOR_Y + 1, 3);
+        floor(helper, 8, 8);
+        place(helper, door, origin, Direction.SOUTH, DoorHingeSide.LEFT);
+
+        List<BlockPos> columns = footprint(helper, door, origin, Swing.CLOSED);
+        Player painter = helper.makeMockPlayer(GameType.SURVIVAL);
+        painter.setItemInHand(InteractionHand.MAIN_HAND,
+                new ItemStack(DoorwaysContent.painting(DoorPattern.PINE)));
+        Player cleaner = helper.makeMockPlayer(GameType.SURVIVAL);
+        cleaner.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BRUSH));
+
+        helper.startSequence()
+                // painted on one panel, and it belongs to all four
+                .thenExecute(() -> helper.useBlock(columns.get(1), painter))
+                .thenIdle(2)
+                .thenExecute(() -> assertPainted(helper, columns, DoorPattern.PINE))
+                .thenExecute(() -> use(helper, columns.get(0)))
+                .thenIdle(SLIDE_SETTLE)
+                .thenExecute(() -> assertPainted(helper, columns, DoorPattern.PINE))
+                .thenExecute(() -> helper.useBlock(columns.get(0), cleaner))
+                .thenIdle(2)
+                .thenExecute(() -> assertPainted(helper, columns, null))
+                .thenSucceed();
+    }
+
+    /** How long to wait for a slide to finish and the door to settle. */
+    private static final int SLIDE_SETTLE = WideDoorBlock.SLIDE_TICKS + 6;
+
+    /** Asserts every panel of the door carries this painting -- or none, for null. */
+    private static void assertPainted(GameTestHelper helper, List<BlockPos> columns,
+                                      @Nullable DoorPattern expected) {
+        for (BlockPos column : columns) {
+            for (BlockPos part : List.of(column, column.above())) {
+                // A relative position: the helper converts, and converting first would look a
+                // structure's width away from the door.
+                BlockEntity entity = helper.getBlockEntity(part, BlockEntity.class);
+                DoorPattern actual = entity instanceof SlidingPanelsBlockEntity panels
+                        ? panels.pattern()
+                        : null;
+                helper.assertTrue(actual == expected,
+                        "panel at " + part + " carries " + actual + ", expected " + expected);
+            }
+        }
     }
 
     // ---------------------------------------------------------------- helpers

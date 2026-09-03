@@ -21,7 +21,7 @@ public final class DoorwaysNeoForgeClient {
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(
-                DoorwaysContent.slidingPanels(), context -> new SlidingPanelsRenderer());
+                DoorwaysContent.slidingPanels(), context -> new SlidingPanelsRenderer(context.sprites()));
     }
 
     private DoorwaysNeoForgeClient() {}

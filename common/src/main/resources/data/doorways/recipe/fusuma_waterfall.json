@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:paper",
+    "minecraft:paper",
+    "minecraft:prismarine_crystals"
+  ],
+  "result": {
+    "id": "doorways:fusuma_waterfall"
+  }
+}

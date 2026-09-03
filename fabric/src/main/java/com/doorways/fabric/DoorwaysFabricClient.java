@@ -21,6 +21,6 @@ public final class DoorwaysFabricClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         BlockEntityRenderers.register(
-                DoorwaysContent.slidingPanels(), context -> new SlidingPanelsRenderer());
+                DoorwaysContent.slidingPanels(), context -> new SlidingPanelsRenderer(context.sprites()));
     }
 }
