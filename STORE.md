@@ -232,5 +232,8 @@ Also in this release:
 7. `DECISIONS.md` — a numbered entry for anything non-obvious, including the
    options that were **declined** and why
 8. **This file** — description, summary, and a changelog for the new version
-9. Commit, tag, push
-10. GitHub release, then Modrinth, then CurseForge
+9. `python tools/gen_recipes.py .` — **whenever a recipe changed**. It draws the recipe sheets
+   into `Screenshots/`, which is not committed, so nothing warns you they have gone stale
+10. Commit, tag, push
+11. GitHub release, then Modrinth, then CurseForge — the recipe sheets are uploaded as images
+    on the store pages, not attached to the release
