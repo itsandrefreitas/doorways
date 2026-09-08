@@ -191,6 +191,38 @@ No dates. Suggestions are welcome on the
 
 ---
 
+## Gallery -- the recipe sheets
+
+Uploaded as images on Modrinth and CurseForge, not attached to the release. Regenerate them with
+`python tools/gen_recipes.py .` whenever a recipe changes; they live in `Screenshots/` and are
+not committed, so nothing else will warn you.
+
+**The description field holds 256 characters.** Both of these are written to that limit, with no
+em dashes -- a platform that counts bytes rather than characters would charge three for each one,
+and the difference only shows when the text is silently truncated.
+
+### `recipes-doors.gif`
+
+**Title** -- How a door is made
+
+**Description** (251 characters)
+
+> Every way a door is crafted, in one picture. Four styles on the left; joining them wider,
+> glazing those, and the stone doorway on the right. Cycles the fourteen materials a body is made
+> from, and each row quotes the sizes it comes in, width by height.
+
+### `recipes-extras.gif`
+
+**Title** -- Components and paintings
+
+**Description** (234 characters)
+
+> The Iron Hinge every swinging door starts from, the Sliding Track the sliding ones run on, and
+> the nine paintings a fusuma can carry: two paper and the thing the picture is of. Cycles all
+> nine. Both components take planks of any wood.
+
+---
+
 ## Version changelog — 0.5.0
 
 **Stone doorways, and doors that can be three blocks tall.**

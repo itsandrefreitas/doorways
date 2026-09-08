@@ -22,7 +22,7 @@ import sys
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from materials import COPPER, IRON, STONES, WOODS
+from materials import BOOKSHELF, COPPER, GLASS, IRON, STONES, WOODS
 from palettes import read_png
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
@@ -313,9 +313,16 @@ def draw_recipe(dst, sprites, x, y, pattern, key, result):
 
 ROW_GAP = 12
 
-# The materials a door body is crafted from. The other seven copper states are missing on
-# purpose: they come from time and from wax, not from a bench, so there is no recipe to draw.
-MATERIALS = WOODS + [IRON, COPPER[0]]
+# The materials a door body is crafted from -- all sixteen. Glass and bookshelf are here
+# because their doors use the same shape with their own ingredient, and saying so in a caption
+# was not the same as showing it: an audit of all 333 recipes found them, the sliding glass door
+# and the waxing missing from the pictures entirely.
+#
+# The other seven copper states are absent on purpose, and so is waxing. They come from time and
+# from honeycomb rather than from a bench, and they are not what anyone opens a recipe sheet
+# looking for: they happen to a door you already have.
+MATERIALS = WOODS + [IRON, COPPER[0], GLASS, BOOKSHELF]
+
 
 # Two singles make a double, three make a triple, two doubles make a quadruple.
 LADDER = [(2, 1, ["DD "]), (3, 1, ["DDD"]), (4, 2, ["DD "])]
@@ -359,6 +366,9 @@ def base_rows(frame):
     body = craft.split(":", 1)[1]
     planks = mid + "_planks"
     only_wood = "Wood only."
+    # A door that is already glass all the way down, or a wall of books, has nothing to glaze.
+    glazable = mid not in ("glass", "bookshelf")
+    no_glazing = "Already glass all through." if mid == "glass" else "Not in bookshelf."
 
     return [
         ("Solid", "1x2  2x2  3x2  4x2",
@@ -370,7 +380,7 @@ def base_rows(frame):
         ("Glazed", "1x2  2x2  3x2  4x2",
          "Glass in the upper half of a door you already have.",
          (PANES[1], {"G": "glass", "D": "doorways:%s_doorway_1" % mid},
-          "doorways:%s_glass_doorway_1" % mid)),
+          "doorways:%s_glass_doorway_1" % mid) if glazable else no_glazing),
 
         ("Saloon", "2x2  4x2",
          "Swings both ways and shuts itself. Two nuggets pay for the springs.",
@@ -378,11 +388,17 @@ def base_rows(frame):
           {"L": planks, "N": "iron_nugget", "H": "doorways:iron_hinge"},
           "doorways:%s_saloon_doorway_2" % mid) if wood else only_wood),
 
-        ("Fusuma", "2x2  4x2",
-         "Slides instead of swinging, and it is the one you can paint.",
+        # One row, two doors: a fusuma in wood, the sliding glass door in glass. They are the
+        # same mechanism with the paper swapped for a pane and the planks for ingots, and the
+        # sliding glass door was in no picture at all before this.
+        ("Fusuma and sliding glass" if wood or mid == "glass" else "Sliding", "2x2  4x2",
+         "Slides instead of swinging. The papered one is the door you can paint.",
          (["TT ", "PP ", "FF "],
-          {"T": "doorways:sliding_track", "P": "paper", "F": planks},
-          "doorways:%s_fusuma_doorway_2" % mid) if wood else only_wood),
+          {"T": "doorways:sliding_track",
+           "P": "glass" if mid == "glass" else "paper",
+           "F": "iron_ingot" if mid == "glass" else planks},
+          "doorways:%s_%s_doorway_2" % (mid, "sliding" if mid == "glass" else "fusuma"))
+         if wood or mid == "glass" else "Wood and glass only."),
     ]
 
 
@@ -393,7 +409,9 @@ def growing_rows(frame):
     pane = 2 + frame % 3
     stone_id, stone_label, _, stone_craft = stone_of(frame)
     stone = stone_craft.split(":", 1)[1]
-    tall = 1 + frame % 2
+    # Three steps on one row: joining two into a double, then raising each width by a course.
+    # Drawn as two rows it took a quarter of the page for one idea; cycled, it costs nothing.
+    step = frame % 3
 
     return [
         ("Wider", "2x2  3x2  4x2",
@@ -404,7 +422,8 @@ def growing_rows(frame):
         ("Glazed wider", "2x2  3x2  4x2",
          "As many panes as the door is wide, and it may sit anywhere in the row.",
          (PANES[pane], {"G": "glass", "D": "doorways:%s_doorway_%d" % (mid, pane)},
-          "doorways:%s_glass_doorway_%d" % (mid, pane))),
+          "doorways:%s_glass_doorway_%d" % (mid, pane))
+         if mid not in ("glass", "bookshelf") else "Nothing to glaze."),
 
         # Named for its own stone, not for the wood in the heading: this half of the page is
         # on a different cycle and a reader should not have to work that out.
@@ -414,11 +433,15 @@ def growing_rows(frame):
           {"L": stone, "W": any_planks(frame), "H": "doorways:iron_hinge"},
           "doorways:%s_doorway_1" % stone_id)),
 
-        ("%s, three rows" % stone_label, "1x3  2x3",
-         "One stone per column raises it a row, and gives it a round arch.",
-         (["DL " if tall == 1 else "DLL"],
-          {"D": "doorways:%s_doorway_%d" % (stone_id, tall), "L": stone},
-          "doorways:%s_doorway_%dx3" % (stone_id, tall))),
+        (("%s, wider" if step == 0 else "%s, three rows") % stone_label,
+         ("2x2" if step == 0 else "1x3" if step == 1 else "2x3"),
+         ("Two singles make a double, the same as everywhere else." if step == 0 else
+          "One stone per column raises it a row, and gives it a round arch."),
+         (["DD "], {"D": "doorways:%s_doorway_1" % stone_id},
+          "doorways:%s_doorway_2" % stone_id) if step == 0 else
+         (["DL " if step == 1 else "DLL"],
+          {"D": "doorways:%s_doorway_%d" % (stone_id, step), "L": stone},
+          "doorways:%s_doorway_%dx3" % (stone_id, step))),
     ]
 
 
@@ -480,8 +503,10 @@ def sheet(font, sprites, title, note, columns, frames_count, delay_cs, path,
                     draw_recipe(page, sprites, left + caption, y, *recipe)
                 else:
                     # No such recipe in this material. Said in words where the grid would be,
-                    # which is more use to a reader than an empty grid to interpret.
-                    draw_text(page, font, left + caption, y + 20, recipe, SLOT_LIT)
+                    # which is more use to a reader than an empty grid to interpret -- and
+                    # wrapped to the grid's own width, or it runs into the next column.
+                    for i, line in enumerate(wrap(font, recipe, recipe_width())):
+                        draw_text(page, font, left + caption, y + 14 + i * 9, line, SLOT_LIT)
                 y += 3 * SLOT + ROW_GAP
         frames.append(scaled(page, scale))
     size = write_gif(path, width * scale, height * scale, frames, delay_cs)
