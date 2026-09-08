@@ -28,7 +28,6 @@ import net.minecraft.client.resources.model.sprite.SpriteGetter;
 import net.minecraft.client.resources.model.sprite.SpriteId;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.util.Mth;
-import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
@@ -161,12 +160,22 @@ public class SlidingPanelsRenderer
      * <p>The seed comes from the position, so a model that varies at random stays the same block
      * it was drawing a moment ago.
      *
-     * <p>This call is deprecated under NeoForge, which would rather it went through its own model
-     * extensions, and is not deprecated in the game itself -- so on the vanilla side a
-     * {@code @SuppressWarnings("deprecation")} here is flagged as unnecessary. There is no
-     * spelling that satisfies both: an extension method does not exist on Fabric, and `common`
-     * compiles against each in turn. The NeoForge build therefore prints one note about a
-     * deprecated API, and that note is this.
+     * <p><b>This is the one call in {@code common} that cannot be spelled to suit both loaders,
+     * and the warning it raises is expected.</b> Compiling against each in turn with
+     * {@code -Xlint:deprecation} shows why: Fabric is silent, while NeoForge deprecates it in
+     * favour of a five-argument {@code collectParts(BlockAndTintGetter, BlockPos, BlockState,
+     * RandomSource, List)} that exists only on its own {@code BlockStateModelExtension}. Fabric's
+     * injected interface adds {@code emitQuads} and friends and no {@code collectParts} at all.
+     *
+     * <p>Nor can it be avoided by not calling it. Every {@code submitBlockModel},
+     * {@code submitBreakingBlockModel} and {@code submitMovingBlock} takes the list of parts
+     * already built; none accepts a model and collects them itself.
+     *
+     * <p>So the only choice is which complaint to carry. A
+     * {@code @SuppressWarnings("deprecation")} here silences NeoForge and is then reported as
+     * unnecessary by an IDE resolving this file against Fabric. Both have been tried and the
+     * warning is the one kept: it is true on the side that raises it, and it leads a reader
+     * here instead of to an annotation that hides the question. See DECISIONS.md, D-28.
      */
     private static void collectParts(BlockState state, BlockPos pos,
                                      List<BlockStateModelPart> into) {
@@ -198,7 +207,10 @@ public class SlidingPanelsRenderer
 
         DoorLayout layout = block.layoutOf(blockState);
         int part = block.partOf(blockState);
-        boolean upper = blockState.getValue(WideDoorBlock.HALF) == DoubleBlockHalf.UPPER;
+        // Rows count up from the floor and the canvas is read from the top down, so the band
+        // this block shows is counted from the other end.
+        int height = block.height();
+        int fromTop = height - 1 - WideDoorBlock.rowOf(blockState);
         float slice = (float) part / width;
         float next = (float) (part + 1) / width;
 
@@ -212,8 +224,8 @@ public class SlidingPanelsRenderer
         // are in the other order.
         state.paintingBackU0 = Mth.lerp(1.0F - slice, sprite.getU0(), sprite.getU1());
         state.paintingBackU1 = Mth.lerp(1.0F - next, sprite.getU0(), sprite.getU1());
-        state.paintingV0 = Mth.lerp(upper ? 0.0F : 0.5F, sprite.getV0(), sprite.getV1());
-        state.paintingV1 = Mth.lerp(upper ? 0.5F : 1.0F, sprite.getV0(), sprite.getV1());
+        state.paintingV0 = Mth.lerp((float) fromTop / height, sprite.getV0(), sprite.getV1());
+        state.paintingV1 = Mth.lerp((float) (fromTop + 1) / height, sprite.getV0(), sprite.getV1());
         state.frontTrack = layout.parksHere(part);
         state.leafRotation = yRotation(
                 WideDoorGeometry.leafDirection(layout, part, Swing.CLOSED));

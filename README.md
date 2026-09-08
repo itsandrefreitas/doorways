@@ -1,6 +1,6 @@
 # Doorways
 
-Articulated doors 1, 2, 3 and 4 blocks wide and 2 blocks tall, for Minecraft 26.2.
+Articulated doors 1 to 4 blocks wide and 2 or 3 blocks tall, for Minecraft 26.2.
 Runs on both Fabric and NeoForge.
 
 The project started from a Portuguese specification document, kept outside this repository.
@@ -8,21 +8,23 @@ The project started from a Portuguese specification document, kept outside this 
 
 ## Status
 
-**226 doors** across seven styles.
+**234 doors** across eight styles.
 
-| Style | Materials | Widths | Doors |
-|---|---|---|---|
-| Solid | 21 | 1–4 | 84 |
-| Glazed — glass in the upper half | 21 | 1–4 | 84 |
-| Glass — glass throughout, iron frame | — | 1–4 | 4 |
-| Saloon — spindles under an arch, on spring hinges | 12 woods | 2, 4 | 24 |
-| Bookshelf | — | 1–4 | 4 |
-| Fusuma — papered panels that slide | 12 woods | 2, 4 | 24 |
-| Sliding glass | — | 2, 4 | 2 |
+| Style | Materials | Widths | Heights | Doors |
+|---|---|---|---|---|
+| Solid | 21 | 1–4 | 2 | 84 |
+| Glazed — glass in the upper half | 21 | 1–4 | 2 | 84 |
+| Glass — glass throughout, iron frame | — | 1–4 | 2 | 4 |
+| Saloon — spindles under an arch, on spring hinges | 12 woods | 2, 4 | 2 | 24 |
+| Bookshelf | — | 1–4 | 2 | 4 |
+| Fusuma — papered panels that slide | 12 woods | 2, 4 | 2 | 24 |
+| Sliding glass | — | 2, 4 | 2 | 2 |
+| Stone — boards in a masonry doorway | 2 stones | 1, 2 | 2, 3 | 8 |
 
 Saloon and sliding doors exist only at the even widths — one splits into two swinging leaves, the
 other is built from leaves of two panels — and the wooden ones only in wood. Glass and bookshelf
-doors have no material to vary.
+doors have no material to vary. Stone stops at two columns, because a leaf of cut stone four
+blocks across, turning on a hinge, is not a door anybody would believe.
 
 **Saloon doors hang on double-acting spring hinges**, which is one mechanism and three
 behaviours: they swing to either side, away from whoever pushes them; they return to their frame
@@ -41,6 +43,14 @@ depicts, put on with the painting in hand and taken off with a brush. A painting
 **whole door** and parts down the middle when it opens, so a 4-wide door is a wider picture
 rather than the same one stretched. See D-39.
 
+**Stone doors come three blocks tall as well as two**, in cobblestone and cobbled deepslate.
+They are a leaf of weathered boards strapped in iron, hung in a doorway of masonry — the way
+round a medieval door actually was — and the three-row ones carry a **round head**. They are also
+the first doors with a height of their own, and height works the way width already did: a taller
+door is a separate block, not a property of one door, which is what keeps five rows from
+multiplying every door in the mod by five. A tall door is crafted from the short one of the same
+width plus a course of stone per column. See D-40.
+
 Every other door opens one way, stays where you left it, and answers a signal.
 
 | Module | What it is | Status |
@@ -57,10 +67,11 @@ loaders is listed in D-28 — and it is mostly a question of *when*, not *what*.
 
 12 woods — oak, spruce, birch, jungle, acacia, dark oak, mangrove, cherry, pale oak, bamboo,
 crimson, warped — plus iron and **8 copper states** (four oxidation stages, each waxed and
-unwaxed). Glass and bookshelf make 23 in all.
+unwaxed). Glass, bookshelf, cobblestone and cobbled deepslate make 25 in all.
 
 Each material uses its vanilla `BlockSetType`, and with it the correct opening and closing
-sounds. Iron doors cannot be opened by hand, exactly like vanilla. Copper doors oxidise, take
+sounds. Iron doors cannot be opened by hand, exactly like vanilla; stone doors can, and open with
+the heavy sound of one. Copper doors oxidise, take
 wax from honeycomb, and are scraped back with an axe — as one door, not as loose columns.
 
 ## How a wide door works
@@ -80,8 +91,8 @@ side, and a column has to know which — otherwise it cannot work out where its 
 **A door only declares the properties it reads.** A 1-wide door has no column index, a door that
 opens from the middle has no hinge, a spring door records no signal, and only a sliding door
 knows whether it is in flight. That is not tidiness: those four rules took the mod from 173,568
-blockstates to 28,096 — from six times the whole of vanilla down to roughly its equal, with 226
-doors in it. The arithmetic, and why each property costs what it costs, is D-38.
+blockstates to 28,096 — from six times the whole of vanilla down to roughly its equal. It stands
+at 28,736 today, with 234 doors in it, and that is the budget every new idea is measured against. The arithmetic, and why each property costs what it costs, is D-38.
 
 That single fact is the source of nearly every bug this project has had, and it is worth
 knowing before you touch anything: *a door that has moved is no longer where the world expects
@@ -90,8 +101,8 @@ it to be* — for reading redstone, for receiving neighbour updates, or for bein
 
 ## Generated assets
 
-2734 files — 226 blockstates holding 13,248 variants between them, 832 block models, 645
-textures, 325 recipes, 226 loot tables. None of it is hand-edited, and it comes from **two**
+2790 files — 234 blockstates holding 13,568 variants between them, 840 block models, 653
+textures, 333 recipes, 234 loot tables. None of it is hand-edited, and it comes from **two**
 generators with a deliberate split:
 
 | Generator | Owns | Why |
@@ -112,10 +123,16 @@ python tools/check_assets.py .
 ```
 
 It verifies that every door has a blockstate, loot table, item definition, model, texture and
-translation, that every model a blockstate points at exists, that every texture a model asks for
-exists, that every door belongs to exactly one tool tag, that no recipe produces something
-unregistered, and that **no loot table names a property its door does not have**. It exits
-non-zero on the first inconsistency.
+translation, that every model a blockstate points at exists **and every model is pointed at**,
+that every texture a model asks for exists, that every door belongs to exactly one tool tag, that
+no recipe produces something unregistered, and that **no loot table names a property its door
+does not have**. It exits non-zero on the first inconsistency.
+
+The second half of that model rule is what catches a **stale blockstate**: the two generators can
+be run apart, so adding a row kind writes models no variant mentions while every other check
+stays green and the doors in game quietly keep their old heads. Adding it also turned up 48
+models that had been shipping in every release for nothing — a saloon door exists only at the
+even widths, so the one-column role it was generating could never occur.
 
 That last rule was written the day it was needed. When the column index became one property per
 width, the 44 one-column doors kept a condition naming the property they had just lost; the whole
@@ -179,11 +196,11 @@ Three layers, and it is worth understanding what each one can and cannot catch.
 |---|---|---|
 | `core/src/test` | 20 JUnit tests | `gradlew :core:test` |
 | `core/src/verify` | `GeometryCheck`, 2052 assertions, **zero dependencies** | `gradlew :core:geometryCheck` |
-| `fabric` GameTests | 15 scenarios in a real world | `gradlew :fabric:runGameTest` |
+| `fabric` GameTests | 16 scenarios in a real world | `gradlew :fabric:runGameTest` |
 
 **The pure-geometry assertions have never caught a single real bug.** That is not a criticism of
 them — `DoorLayout` is a pure function of coordinates and was never wrong. Every bug lived at the
-boundary with the world, which is why the GameTests exist and why each of the fifteen guards a
+boundary with the world, which is why the GameTests exist and why each of the sixteen guards a
 bug that actually happened. See D-33.
 
 Several were written after the fact: the two-way saloon door shipped with defects that no
@@ -265,6 +282,10 @@ codebase look odd until you know the reason:
 - a painting is not a blockstate property, and the reason is 82,944 blockstates (D-39)
 - opening a door only demolishes it when the door actually changes place, and the day that was
   merely wasteful is the day it deleted paintings (D-39)
+- the vertical index is spelled two ways — vanilla's `half` at two rows, a plain `row` above —
+  and the reason is every door standing in every world that already exists (D-40)
+- growing a door taller did not touch the geometry module by a single line, because a door's
+  geometry is horizontal and always was (D-40)
 
 ## License
 

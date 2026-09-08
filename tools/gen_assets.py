@@ -17,8 +17,9 @@ import zipfile
 import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from materials import (COPPER_IDS, GLASS_ID, IRON_ID, MATERIALS, SLIDING, STYLES, block_name,
-                       display_name, model_stem, oxidation_chain, waxable_pairs)
+from materials import (COPPER_IDS, DEFAULT_HEIGHT, GLASS_ID, IRON_ID, MATERIALS, SLIDING,
+                       STONE_IDS, STYLES, block_name, display_name, model_stem, oxidation_chain,
+                       roles, row_kinds, waxable_pairs)
 from palettes import palette_from, read_png
 
 MOD = "doorways"
@@ -37,6 +38,13 @@ CLIENT_JAR = os.path.expanduser(
 IRON = (146, 148, 155, 255)
 IRON_HI = (186, 188, 194, 255)
 IRON_LO = (98, 100, 107, 255)
+
+# Wrought iron, for the straps on a boarded door. The bright greys above are for a door made of
+# iron, seen flat and lit; a strap is a bar hammered on the outside of a door and has to be much
+# darker than the wood behind it or it reads as a pipe laid across the boards.
+STRAP = (58, 54, 52, 255)
+STRAP_HI = (86, 80, 76, 255)
+STRAP_PIN = (36, 33, 32, 255)
 GLASS = (156, 198, 214, 110)
 GLASS_HI = (206, 232, 242, 150)
 NONE = (0, 0, 0, 0)
@@ -343,21 +351,367 @@ def bookshelf_leaf(vanilla, role):
     return [row[:] for row in vanilla]
 
 
-def door_texture(pal, half, role, glass):
-    px = blank()
-    planks(px, pal)
+def rails(px, half):
+    """The ironwork across a row: the foot, the head, and the joins in between.
+
+    Every row carries a band at each of its ends, so that wherever two rows meet there is iron
+    on both sides of the joint and the door reads as courses rather than as one long slab. The
+    foot and the head are heavier, which is what makes a door look like it stands on something.
+    """
     if half == "bottom":
         band(px, 13, 15)
         band(px, 0, 1)
-    else:
+    elif half == "top":
         band(px, 0, 2)
         band(px, 14, 15)
-        if glass:
-            window(px, pal, role)
+    else:
+        band(px, 0, 1)
+        band(px, 14, 15)
+
+
+def door_texture(pal, half, role, glass):
+    px = blank()
+    planks(px, pal)
+    rails(px, half)
+    if glass:
+        window(px, pal, role)
     if role in ("left", "single"):
         strap(px, "left")
     if role in ("right", "single"):
         strap(px, "right")
+    return px
+
+
+# How big a cobble is, roughly. The stones are grown from jittered centres rather than laid on
+# a grid, so this is an average and not a size -- which is the whole difference between cobble
+# and ashlar.
+COBBLE_STEP = 4
+
+# How many of the grid's centres actually become a stone. Every one of them gave sixteen little
+# pebbles to a block and the face read as gravel; dropping a third of them lets the survivors
+# grow into each other's room, which is what makes the sizes uneven the way real cobble is.
+COBBLE_KEEP = 6
+
+
+def cobble_centres():
+    """A stone's worth of centres, jittered off a grid and wrapped at the tile's edges.
+
+    Wrapped, so the face tiles seamlessly: a door is several of these textures side by side and
+    one above another, and a cobble that stops dead at a block edge gives the whole door a grid
+    the stones were supposed to hide.
+    """
+    out = []
+    for gy in range(0, H, COBBLE_STEP):
+        for gx in range(0, W, COBBLE_STEP):
+            # Mixed properly rather than xored: with only four values on each axis, a plain
+            # xor left the jitter correlated and the stones lined up on the diagonal.
+            h = (gx * 374761393 + gy * 668265263) & 0xFFFFFFFF
+            h = ((h ^ (h >> 13)) * 1274126177) & 0xFFFFFFFF
+            if (h >> 20) % 8 >= COBBLE_KEEP:
+                continue
+            out.append((((gx + h % COBBLE_STEP) % W),
+                        ((gy + (h >> 8) % COBBLE_STEP) % H)))
+    return out
+
+
+def wrapped(a, b, size):
+    """Distance from a to b on a face that wraps, which is the shorter way round."""
+    d = abs(a - b)
+    return min(d, size - d)
+
+
+def cobblework(px, pal):
+    """A face of cobbles: irregular stones with a dark gap between them.
+
+    Two attempts came before this one. The first used the vanilla cobblestone pixels outright,
+    and read as a patch of wall rather than as a door. The second went the other way -- big
+    dressed blocks in courses, bevelled -- and read as ashlar: handsome, and no longer
+    cobblestone at all, which is what the material is called.
+
+    So the stones are grown instead of laid: every pixel belongs to whichever jittered centre is
+    nearest, which gives stones of different sizes and no two the same shape. A pixel whose
+    neighbour belongs to another stone is the gap between them. Each stone takes one of three
+    tones and catches the light along its top edge, and that is all the shading there is -- the
+    irregularity is doing the work that bevels had to do before.
+    """
+    centres = cobble_centres()
+
+    def owner(x, y):
+        best, at = None, 0
+        for i, (cx, cy) in enumerate(centres):
+            d = wrapped(x, cx, W) ** 2 + wrapped(y, cy, H) ** 2
+            if best is None or d < best:
+                best, at = d, i
+        return at
+
+    own = [[owner(x, y) for x in range(W)] for y in range(H)]
+    for y in range(H):
+        for x in range(W):
+            here = own[y][x]
+            # The gap: a pixel with a different stone below it or to its right. Taking the four
+            # neighbours instead doubled every gap and buried the stones.
+            if own[(y + 1) % H][x] != here or own[y][(x + 1) % W] != here:
+                px[y][x] = pal["WOOD_LO"]
+                continue
+            # Two tones and a lit top edge, and no stone darker than the gaps between them. The
+            # first version put the gaps at the darkest tone the palette has and a third of the
+            # stones at the next one down, and the whole face came out closer to gabbro than to
+            # the cobblestone it is named after.
+            if own[(y - 1) % H][x] != here or (here * 7) % 3 == 0:
+                px[y][x] = pal["WOOD_HI"]
+            else:
+                px[y][x] = pal["WOOD"]
+
+
+# The four tones a palette gives, darkest first, so that weathering can be written as a step up
+# or a step down rather than as a colour.
+PLANK_TONES = ("GROOVE", "WOOD_LO", "WOOD", "WOOD_HI")
+
+
+def tone(wood, step):
+    return wood[PLANK_TONES[max(0, min(len(PLANK_TONES) - 1, step))]]
+
+
+def board_hash(n):
+    """A well-mixed value per board, so neighbouring boards are unrelated."""
+    h = (n * 2654435761) & 0xFFFFFFFF
+    return ((h ^ (h >> 15)) * 2246822519) & 0xFFFFFFFF
+
+
+def damp(y, gx, seed):
+    """Whether this pixel is in the wet at the foot of the door.
+
+    Dithered rather than banded: the damp does not stop at a line, and four rows of solidly
+    darker timber read as a plinth rather than as rot. The lowest row always, and the ones above
+    it less and less often, which at this size is what a soft edge is made of.
+    """
+    if seed != 0:
+        return False
+    depth = H - 1 - y
+    if depth < 0 or depth > 3:
+        return False
+    return (gx * 7 + y * 3) % 4 >= depth
+
+
+def plank_field(px, wood, offset, seed):
+    """The leaf itself: upright boards, and not one of them new.
+
+    The first version was one flat tone with a groove every five pixels, and it read as a
+    surface rather than as timber -- nothing on it had ever been rained on. What is added here
+    is age, in four kinds, each written as a step darker or lighter rather than as a colour of
+    its own:
+
+    <ul>
+      <li>every board is cut from its own tree, so each takes its base tone from its own hash;
+      <li>some have had water running down them for years, and are a shade darker their whole
+          height;
+      <li>the grain shows as long flecks, and a knot here and there as a dark eye;
+      <li>the foot of the door is darker still, where the damp comes up out of the ground.
+    </ul>
+
+    The base is the palette's own middle tone, and the weathering only ever takes it downwards:
+    a board that has aged is darker than one that has not, never lighter. Starting a step below
+    the middle instead -- so that age could go both ways -- made every door read as derelict.
+
+    Both the boards and their weathering run on the door's own pixels rather than the tile's, so
+    they carry on across the joint between two columns instead of restarting at every block.
+    `seed` separates the rows: without it the same knot appeared at the same height in every row
+    of the door, in a neat vertical line.
+    """
+    for x in range(W):
+        gx = x + offset
+        h = board_hash(gx // 5)
+        # Most boards sit at the palette's own middle tone and one in four a shade under it.
+        # Built the other way round -- dark by default, a light one here and there -- the whole
+        # door came out closer to a barn door left out for a century than to one in use.
+        base = 2 - (h % 4 == 0)
+        streak = (h >> 7) % 4 == 0 and gx % 5 == 3
+        for y in range(H):
+            if gx % 5 == 0:
+                px[y][x] = tone(wood, 0)
+                continue
+            step = base + (1 if gx % 5 == 1 else 0) - (1 if streak else 0)
+            grain = (gx * 31 + y * 17 + seed * 101) & 0xFF
+            if grain % 29 == 0:
+                step -= 1
+            elif grain % 23 == 0:
+                step += 1
+            if damp(y, gx, seed):
+                step -= 1
+            px[y][x] = tone(wood, step)
+
+    # Knots: a dark eye in the board, with the grain drawn tight around it.
+    for x in range(W):
+        gx = x + offset
+        if gx % 5 in (0, 1):
+            continue
+        for y in range(1, H - 1):
+            if (board_hash(gx * 7 + y * 13 + seed * 977) >> 11) % 61:
+                continue
+            for dy in (0, 1):
+                if y + dy < H:
+                    px[y + dy][x] = tone(wood, 0)
+            if x + 1 < W and (gx + 1) % 5 != 0:
+                px[y][x + 1] = tone(wood, 1)
+
+
+# The masonry around the opening, in pixels. Two down each free edge and nothing at all across
+# the head or the threshold: a band of stone left lying in the doorway when the door swings away
+# reads as a bug rather than as a sill, and the same band overhead on a two-row door reads as a
+# stray course. What stays is what a jamb is -- the sides.
+#
+# Three, and it has to be three: it is also how deep the leaf is, and the slide that takes a
+# swung leaf clear of its own jamb only lands exactly when the two match. At two the leaf came
+# to rest a pixel inside the stone; at four it would leave a pixel of daylight.
+REVEAL = 3
+
+# The stone left over the crown of an arch. The ring has to close over the top, or it is not a
+# ring; this is how thick it is at its thinnest.
+ARCH_CROWN = 2
+
+# How high a round head is allowed to rise. A semicircle over a wide opening would spring from
+# below the row it lives in, and the row below is shared with doors that have no arch at all --
+# so a wide one becomes a segmental arch, which is the shallower form the same builders used
+# over the same openings.
+ARCH_RISE = 7
+
+
+def arch_top(gx, width):
+    """The row at which the leaf's head sits, for one column of the door.
+
+    A circular arc through the two springings and the crown. At a narrow opening the rise
+    reaches half the span and the arc is a true semicircle; at a wide one it is capped and the
+    arc becomes segmental. One formula covers both, which is the only reason two widths do not
+    need two drawings.
+    """
+    span = width - 2 * REVEAL
+    rise = min(span // 2, ARCH_RISE)
+    radius = (span * span / 4.0 + rise * rise) / (2.0 * rise)
+    off = gx - (width - 1) / 2.0
+    under = radius * radius - off * off
+    height = math.sqrt(under) - (radius - rise) if under > 0 else 0.0
+    return ARCH_CROWN + int(round(rise - max(0.0, min(float(rise), height))))
+
+
+def stone_surround(px, pal, half, role, offset, width):
+    """The masonry the doorway is set in: a reveal down each free edge and a head over it.
+
+    The stone is the same cobblework the whole face used to be, drawn into a full tile and then
+    copied out only where the surround is -- so the stones of the reveal are the same stones, cut
+    by the opening rather than fitted to it, which is how a real jamb looks. The arch is cut from
+    that same field, which is what makes its voussoirs read as part of the wall rather than as a
+    ring drawn on top of it.
+    """
+    stone = blank()
+    cobblework(stone, pal)
+
+    def lay(x, y):
+        px[y][x] = stone[y][x]
+
+    if role in ("left", "single"):
+        for y in range(H):
+            for x in range(REVEAL):
+                lay(x, y)
+    if role in ("right", "single"):
+        for y in range(H):
+            for x in range(W - REVEAL, W):
+                lay(x, y)
+    if half == "arch":
+        for x in range(W):
+            for y in range(arch_top(x + offset, width)):
+                lay(x, y)
+
+
+def door_strap(px, dark, light, pin, cy, span, offset, anchor):
+    """A strap across part of the leaf, headed at one end and pointed at the other.
+
+    This is the piece that says "door" from across a courtyard. A rectangle of boards is a wall
+    of boards; a rectangle of boards with a strap across it is a door, and no other single mark
+    does that job as cheaply.
+
+    It does <b>not</b> run from edge to edge. A strap that crosses the whole door reads as a
+    shelf, and two of them read as a rack -- which is exactly what the first version looked like.
+    Each one starts at one jamb, runs three quarters of the way over, and tapers to a point, so
+    the two of them together brace the door without ever lining up.
+
+    `span` is in the door's own pixels and `offset` is where this tile starts in them, which is
+    what lets one strap cross both columns of a two-column door and stop partway through the
+    second.
+    """
+    start, end = span
+    for x in range(W):
+        dx = x + offset
+        if not start <= dx <= end:
+            continue
+        along = dx - start if anchor == "left" else end - dx
+        left = end - dx if anchor == "left" else dx - start
+        if left < 2:
+            thick = 0            # the point
+        elif along < 3:
+            thick = 2            # the head, where it is pinned to the jamb
+        else:
+            thick = 1
+        for y in range(cy - thick, cy + thick + 1):
+            if 0 <= y < H:
+                px[y][x] = dark
+        if 0 <= cy - thick < H:
+            px[cy - thick][x] = light
+        if along in (1, 2) and 0 <= cy < H:
+            px[cy][x] = pin
+
+
+# Where each tile sits in the door's own pixels, and how wide the door is, per role. A stone
+# door comes at one column or two, so the role says which without needing the width passed in.
+STONE_SPAN = {"single": (0, W), "left": (0, 2 * W), "right": (W, 2 * W)}
+
+
+# Which way each role's leaf can turn, and the quarter turn its stone ring must be written
+# with so that the blockstate's own rotation cancels it. A split door's halves each pivot at a
+# fixed end, so only the one-column door needs both.
+ARCH_SWINGS = {
+    "single": (("low", -90), ("high", 90)),
+    "left": (("low", -90),),
+    "right": (("high", 90),),
+}
+
+
+def stone_leaf(pal, wood, half, role):
+    """A boarded leaf set in a stone doorway, strapped twice in iron.
+
+    This is the way round a medieval door actually was: the door is timber, and the stone is the
+    wall it is hung in. It was built the other way first -- a panel of masonry in a timber frame
+    -- and the picture was wrong before the pixels were: nobody hangs a slab of cobble on a
+    hinge.
+
+    <b>Two straps to a door, whatever its height</b> -- not one per row. One per row was the
+    first attempt and it read as a rack of shelves: five horizontal bands on a three-row door,
+    evenly spaced, and the eye counts shelves rather than seeing a door. So the head row carries
+    its strap low and the bottom row carries its high, which puts the two of them near the thirds
+    of the door at both heights, and any row in between is left as plain boards.
+
+    They run opposite ways and stop three quarters over, so they never line up into a shelf: the
+    lower one is pinned at the left jamb and points right, the upper one at the right and points
+    left. On an arched door the upper one drops to sit clear of the springing -- a strap crossing
+    the curve would cut the arch in half.
+
+    The boards are spruce. This door has no wood of its own -- its recipe takes any planks, the
+    way the sliding glass door's frame does -- so one had to be chosen to draw it in.
+    """
+    px = blank()
+    offset, width = STONE_SPAN[role]
+    plank_field(px, wood, offset,
+                {"bottom": 0, "middle": 1, "top": 2, "arch": 3}[half])
+    quarter = width // 4
+    if half in ("top", "arch"):
+        door_strap(px, STRAP, STRAP_HI, STRAP_PIN,
+                   13 if half == "arch" else 11,
+                   (quarter, width - 1), offset, "right")
+    elif half == "bottom":
+        door_strap(px, STRAP, STRAP_HI, STRAP_PIN, 4,
+                   (0, width - 1 - quarter), offset, "left")
+    # Last, so the masonry is in front of both the boards and the ironwork: the leaf is set
+    # <b>into</b> the opening, not laid over it.
+    stone_surround(px, pal, half, role, offset, width)
     return px
 
 
@@ -372,12 +726,7 @@ def glass_leaf(half, role):
             if (x + y) % 7 == 0:
                 px[y][x] = GLASS_HI
 
-    if half == "bottom":
-        band(px, 13, 15)
-        band(px, 0, 1)
-    else:
-        band(px, 0, 2)
-        band(px, 14, 15)
+    rails(px, half)
     if role in ("left", "single"):
         strap(px, "left")
     if role in ("right", "single"):
@@ -385,7 +734,7 @@ def glass_leaf(half, role):
     return px
 
 
-def item_texture(pal, vanilla, width, style):
+def item_texture(pal, vanilla, width, style, height=DEFAULT_HEIGHT, wood=None):
     """The inventory sprite: a small elevation of the door, in its own style."""
     px = blank()
     total = min(width * 3 + 1, 13)
@@ -396,11 +745,18 @@ def item_texture(pal, vanilla, width, style):
     for y in range(y0, y1 + 1):
         for x in range(x0, x0 + total):
             if x in (x0, x0 + total - 1) or y in (y0, y1):
-                px[y][x] = IRON_LO
+                # A stone door's outline is the masonry it hangs in, not an iron binding: at the
+                # size the player actually picks it at, the surround is the only thing that
+                # tells it apart from an ordinary wooden door.
+                px[y][x] = ((pal["WOOD_HI"] if (x + y) % 3 else pal["WOOD"])
+                            if style == "stone" else IRON_LO)
             elif style == "full_glass":
                 px[y][x] = GLASS_HI if (x + y) % 3 else GLASS
             elif style == "bookshelf":
                 px[y][x] = vanilla[y % H][x % W]
+            elif style == "stone":
+                # Boards inside the surround, the same way round as the door itself.
+                px[y][x] = wood["GROOVE"] if (x - x0) % 3 == 0 else wood["WOOD"]
             elif style == "glazed" and 4 <= y <= 7:
                 px[y][x] = GLASS_HI
             elif (x - x0) % 3 == 0:
@@ -408,9 +764,14 @@ def item_texture(pal, vanilla, width, style):
             else:
                 px[y][x] = pal["WOOD"] if y > 8 else pal["WOOD_HI"]
 
-    middle = (y0 + y1) // 2
-    for x in range(x0, x0 + total):
-        px[middle][x] = IRON
+    # One rail per joint between rows, which is how the sprite says how tall the door is: a
+    # two-row door keeps the single band it always had, a three-row one gains a second.
+    for i in range(1, height):
+        # Floor, not round: at two rows this has to land on the exact pixel the single band used
+        # to sit on, or every sprite in the mod moves by one.
+        y = y0 + (y1 - y0) * i // height
+        for x in range(x0, x0 + total):
+            px[y][x] = STRAP if style == "stone" else IRON
     return px
 
 
@@ -451,14 +812,16 @@ def track_texture(pal):
 # belongs in datagen, pixels belong here.
 
 
-def leaf_texture(pal, vanilla, half, role, style):
-    """The texture for one half of one column, in whichever style."""
+def leaf_texture(pal, vanilla, wood, half, role, style):
+    """The texture for one row of one column, in whichever style."""
     if style == "full_glass":
         return glass_leaf(half, role)
     if style == "saloon":
         return saloon_leaf(pal, half, role)
     if style == "bookshelf":
         return bookshelf_leaf(vanilla, role)
+    if style == "stone":
+        return stone_leaf(pal, wood, half, role)
     return door_texture(pal, half, role, style == "glazed" and half == "top")
 
 
@@ -534,7 +897,7 @@ def sliding_model(face_tex, spans):
     }
 
 
-def leaf_box(z0, z1, y0, y1, faces, span, mirrored):
+def leaf_box(z0, z1, y0, y1, faces, span, mirrored, uv=None):
     """One box of a leaf, with the UV conventions taken from the vanilla door template.
 
     The texture's 16-wide axis runs along z, and v counts down from the top of the block, so a
@@ -553,19 +916,23 @@ def leaf_box(z0, z1, y0, y1, faces, span, mirrored):
     hollow the moment you look at it from the side.
     """
     v0, v1 = H - y1, H - y0
+    # Where the box takes its pixels from, which is not always where it sits. A leaf that has
+    # been slid along the wall to clear its own jamb has to keep the boards it was cut from, or
+    # the grain jumps between the shut door and the open one.
+    u0, u1 = uv if uv else (z0, z1)
     out = {}
     if "west" in faces:
-        out["west"] = {"texture": "#face", "uv": [z0, v0, z1, v1]}
+        out["west"] = {"texture": "#face", "uv": [u0, v0, u1, v1]}
     if "east" in faces:
-        out["east"] = {"texture": "#face", "uv": [z1, v0, z0, v1]}
+        out["east"] = {"texture": "#face", "uv": [u1, v0, u0, v1]}
     if "north" in faces:
-        out["north"] = {"texture": "#face", "uv": [z0 + 3, v0, z0, v1]}
+        out["north"] = {"texture": "#face", "uv": [u0 + 3, v0, u0, v1]}
     if "south" in faces:
-        out["south"] = {"texture": "#face", "uv": [z1 - 3, v0, z1, v1]}
+        out["south"] = {"texture": "#face", "uv": [u1 - 3, v0, u1, v1]}
     if "up" in faces:
-        out["up"] = {"texture": "#face", "uv": [z0, v0 + 3, z1, v0], "rotation": 90}
+        out["up"] = {"texture": "#face", "uv": [u0, v0 + 3, u1, v0], "rotation": 90}
     if "down" in faces:
-        out["down"] = {"texture": "#face", "uv": [z1, v1 - 3, z0, v1], "rotation": 90}
+        out["down"] = {"texture": "#face", "uv": [u1, v1 - 3, u0, v1], "rotation": 90}
     return {"from": [span[0], y0, z0], "to": [span[1], y1, z1],
             "faces": mirror_faces(out, mirrored)}
 
@@ -604,6 +971,116 @@ def saloon_leaf_model(face_tex, half, span, mirrored=False):
         "ambientocclusion": False,
         "textures": {"particle": face_tex, "face": face_tex},
         "elements": elements,
+    }
+
+
+# Which way a face points after a quarter turn about the block's upright axis. A blockstate's
+# `y` turns the whole model, so geometry that has to stay put while the leaf swings is written
+# turned the other way first, and the two cancel.
+TURNED_FACES = {
+    90: {"west": "north", "north": "east", "east": "south", "south": "west"},
+    -90: {"west": "south", "south": "east", "east": "north", "north": "west"},
+}
+
+
+def turned(element, quarter):
+    """The same box, a quarter turn about the block's centre.
+
+    Only the box and the names of its faces move; each face keeps the UVs it was given. On a
+    face of cobble that is exactly right enough -- the stone is noise, and a patch of it landing
+    rotated is not something anybody can see. It would matter on a texture with a direction.
+    """
+    if not quarter:
+        return element
+    (x0, y0, z0), (x1, y1, z1) = element["from"], element["to"]
+    box = ((W - z1, y0, x0), (W - z0, y1, x1)) if quarter == 90         else ((z0, y0, W - x1), (z1, y1, W - x0))
+    faces = {TURNED_FACES[quarter].get(name, name): face
+             for name, face in element["faces"].items()}
+    return {"from": list(box[0]), "to": list(box[1]), "faces": faces}
+
+
+def stone_split(half, gx, width):
+    """Where the boards begin and end in one column, in texture rows.
+
+    Everything outside that is masonry, and masonry does not move. Returns `(a, b)`: the boards
+    run from row `a` to row `b`, the stone above from 0 to `a`, the stone below from `b` to 16.
+    An empty range means the whole column is stone, which is what a jamb is.
+    """
+    if gx < REVEAL or gx >= width - REVEAL:
+        return 0, 0
+    if half == "arch":
+        return arch_top(gx, width), H
+    return 0, H
+
+
+def stone_runs(half, offset, width):
+    """Columns grouped into runs that split the same way, as `(z0, z1, a, b)`."""
+    splits = [stone_split(half, z + offset, width) for z in range(W)]
+    runs, start = [], 0
+    for z in range(1, W + 1):
+        if z == W or splits[z] != splits[start]:
+            runs.append((start, z - 1) + splits[start])
+            start = z
+    return runs
+
+
+def leaf_slide(offset, width, quarter):
+    """How far the leaf moves along the wall in a swung model, in pixels.
+
+    A blockstate turns a model about the <b>centre of its block</b>, not about the hinge. A leaf
+    that is inset from both ends -- a one-column door -- comes to rest between its two jambs and
+    all is well. A half-leaf of a two-column door is inset at one end only, and turning it about
+    the block's centre sweeps it straight over its own jamb: the jamb ends up buried inside the
+    leaf, their faces land in the same plane, and the hinge end of the door flickers between
+    stone and boards as you move your head.
+
+    So in the swung models the leaf is slid along the wall until it comes to rest <b>beside</b>
+    the jamb rather than on top of it. It keeps its own pixels: the slide moves the box, not the
+    part of the texture it is cut from.
+    """
+    low = REVEAL if offset < REVEAL else 0
+    high = W - REVEAL if offset + W > width - REVEAL else W
+    return (W - REVEAL) - high if quarter < 0 else REVEAL - low
+
+
+def stone_row_model(face_tex, half, role, quarter):
+    """One row of a stone door: boards that swing, in masonry that does not.
+
+    Two groups of boxes in one model. The boards are the leaf and turn with the door, written
+    exactly the way every other leaf in this file is. The stone -- the jamb down each side, and
+    the ring over an arched head -- is written **turned the other way**, so that the rotation the
+    blockstate applies to the whole model lands it back in the plane of the wall. The two cancel
+    and the masonry stands still while the door opens through it.
+
+    Painted on instead of cut, it read as a doorway shut and swung away with the leaf open,
+    leaving a square hole with a doorway drawn on the door standing beside it.
+
+    There is no sill and no lintel band. A strip of stone left lying across the threshold when
+    the door swings away reads as a bug rather than as a sill, and the same strip overhead on a
+    two-row door reads as a stray course. What stays is the sides, which is what a jamb is -- and
+    the ring of an arch, which is the one piece of stone that has to close over the top.
+
+    The leaf keeps the face along its head so that a door open under an arch is not a box you can
+    see into from above; the stone keeps its underside only when the two have parted, because
+    shut they share that plane exactly and two faces in one place flicker.
+    """
+    sides = ("north", "south", "west", "east")
+    offset, width = STONE_SPAN[role]
+    slide = leaf_slide(offset, width, quarter) if quarter else 0
+    leaf, stone = [], []
+    for z0, z1, a, b in stone_runs(half, offset, width):
+        if b > a:
+            leaf.append(leaf_box(z0 + slide, z1 + 1 + slide, H - b, H - a,
+                                 sides + ("up", "down"), LEAF_FLUSH, False, uv=(z0, z1 + 1)))
+        for lo, hi in ((0, a), (b, H)):
+            if hi > lo:
+                faces = sides + ("up",) if quarter == 0 else sides + ("up", "down")
+                stone.append(turned(leaf_box(z0, z1 + 1, H - hi, H - lo,
+                                             faces, LEAF_FLUSH, False), quarter))
+    return {
+        "ambientocclusion": False,
+        "textures": {"particle": face_tex, "face": face_tex},
+        "elements": leaf + stone,
     }
 
 
@@ -666,12 +1143,12 @@ def main():
     # once, on whichever style reaches it first.
     written = set()
 
-    for style, (materials, widths) in STYLES.items():
+    for style, (materials, widths, heights) in STYLES.items():
         for material, label, texture, craft in materials:
             pal = palettes[material]
             vanilla = faces[material]
 
-            for half in ("bottom", "top"):
+            for half in row_kinds(style, heights):
                 # A sliding panel is framed all round and self-contained, so the left/mid/right
                 # roles collapse into one. What its four models say instead is which track the
                 # panel is on and whether it is parked -- there is no swung twin.
@@ -702,14 +1179,29 @@ def main():
                         n += 1
                     continue
 
-                for role in ("single", "left", "mid", "right"):
+                for role in roles(widths):
                     stem = model_stem(material, style, half, role)
                     if stem in written:
                         continue
                     written.add(stem)
                     write_png(os.path.join(ASSETS, "textures", "block", stem + ".png"),
-                              leaf_texture(pal, vanilla, half, role, style))
+                              leaf_texture(pal, vanilla, palettes["spruce"], half, role, style))
                     face = f"{MOD}:block/{stem}"
+
+                    # The arched head is three models, not two, and none of them is the other
+                    # turned round. Its stone ring has to end up in the wall whichever way the
+                    # leaf went, so each swing gets the ring written turned the other way --
+                    # and the two swings turn opposite ways, which is why there are three.
+                    if style == "stone":
+                        write_json(os.path.join(ASSETS, "models", "block", stem + ".json"),
+                                   stone_row_model(face, half, role, 0))
+                        for pivot, quarter in ARCH_SWINGS[role]:
+                            write_json(os.path.join(ASSETS, "models", "block",
+                                                    f"{stem}_open_{pivot}.json"),
+                                       stone_row_model(face, half, role, quarter))
+                            n += 1
+                        n += 2
+                        continue
 
                     # Two models per stem, sharing the texture: in the frame, and swung out of
                     # it. A saloon door moves its box as well, hanging centred while closed.
@@ -727,21 +1219,23 @@ def main():
                     n += 3
 
             for width in widths:
-                block = block_name(material, width, style)
-                lang[f"block.{MOD}.{block}"] = display_name(label, width, style)
+                for height in heights:
+                    block = block_name(material, width, style, height)
+                    lang[f"block.{MOD}.{block}"] = display_name(label, width, style, height)
 
-                # Blockstates and item definitions come from datagen, not from here:
-                # they derive from geometry. See DECISIONS.md, D-34.
-                write_png(os.path.join(ASSETS, "textures", "item", block + ".png"),
-                          item_texture(pal, vanilla, width, style))
-                write_json(os.path.join(ASSETS, "models", "item", block + ".json"),
-                           {"parent": "item/generated",
-                            "textures": {"layer0": f"{MOD}:item/{block}"}})
-                write_json(os.path.join(DATA, "loot_table", "blocks", block + ".json"),
-                           loot_table(block, width))
-                n += 3
+                    # Blockstates and item definitions come from datagen, not from here:
+                    # they derive from geometry. See DECISIONS.md, D-34.
+                    write_png(os.path.join(ASSETS, "textures", "item", block + ".png"),
+                              item_texture(pal, vanilla, width, style, height,
+                                           palettes["spruce"]))
+                    write_json(os.path.join(ASSETS, "models", "item", block + ".json"),
+                               {"parent": "item/generated",
+                                "textures": {"layer0": f"{MOD}:item/{block}"}})
+                    write_json(os.path.join(DATA, "loot_table", "blocks", block + ".json"),
+                               loot_table(block, width, height))
+                    n += 3
 
-            n += write_recipes(material, craft, style, widths)
+            n += write_recipes(material, craft, style, widths, heights)
 
     # The icon the launcher and the in-game mod list show. 128x128 is what Modrinth asks for.
     icon = scale(mod_icon(palettes["oak"]), 8)
@@ -800,7 +1294,7 @@ def main():
     write_json(os.path.join(ASSETS, "lang", "en_us.json"), dict(sorted(lang.items())))
     n += 5
 
-    doors = sum(len(m) * len(w) for m, w in STYLES.values())
+    doors = sum(len(m) * len(w) * len(h) for m, w, h in STYLES.values())
     print(f"{n} files, {len(MATERIALS)} materials, {len(STYLES)} styles, {doors} doors")
 
 
@@ -1550,15 +2044,23 @@ def write_paintings(lang):
     return written
 
 
-def loot_table(block, width):
-    """Only the anchor (lower half, column 0) drops anything: this prevents duplication when
+def loot_table(block, width, height=DEFAULT_HEIGHT):
+    """Only the anchor (bottom row, column 0) drops anything: this prevents duplication when
     an explosion catches several columns. The same trick vanilla oak_door uses, widened to
-    cover PART.
+    cover PART and now HEIGHT too.
 
     A 1-wide door has no `part` property to name (D-38), and naming one it does not have makes
     the whole table fail to parse -- which means the door drops nothing at all. With one column
-    there is nothing to disambiguate anyway: the lower half is the anchor."""
-    anchor = {"half": "lower"} if width == 1 else {"half": "lower", "part": "0"}
+    there is nothing to disambiguate anyway: the bottom row is the anchor. Forty-four doors once
+    dropped nothing because of exactly that mistake, which is why check_assets now refuses a
+    table naming a property its door does not declare.
+
+    The row is spelled two ways for the same reason the block declares it two ways: `half` at
+    the usual height, so that every door written before there were tall ones keeps working, and
+    a plain `row` above it."""
+    anchor = {"half": "lower"} if height == DEFAULT_HEIGHT else {"row": "0"}
+    if width > 1:
+        anchor["part"] = "0"
     return {
         "type": "minecraft:block",
         "random_sequence": f"{MOD}:blocks/{block}",
@@ -1624,6 +2126,7 @@ DEFAULT_YIELD = 4
 LADDER = {
     (1, 2, 3, 4): ((2, 1, ["DD"]), (3, 1, ["DDD"]), (4, 2, ["DD"])),
     (2, 4): ((4, 2, ["DD"]),),
+    (1, 2): ((2, 1, ["DD"]),),
 }
 
 
@@ -1644,7 +2147,9 @@ def body_ingredient(material, craft, style):
 
 # The materials mined with a pickaxe rather than an axe. Everything else here is wood, or
 # close enough to it that vanilla treats it as wood.
-METAL_IDS = {IRON_ID, GLASS_ID} | COPPER_IDS
+# Metal, glass and stone all want a pickaxe. Everything else here is wood, or close enough to
+# it that vanilla treats it as wood.
+PICKAXE_IDS = {IRON_ID, GLASS_ID} | COPPER_IDS | STONE_IDS
 
 
 def write_mineable_tags():
@@ -1658,11 +2163,12 @@ def write_mineable_tags():
     vanilla one rather than replacing it, which is how a datapack joins an existing set.
     """
     axe, pickaxe = [], []
-    for style, (materials, widths) in STYLES.items():
+    for style, (materials, widths, heights) in STYLES.items():
         for material, label, texture, craft in materials:
             for width in widths:
-                name = f"{MOD}:{block_name(material, width, style)}"
-                (pickaxe if material in METAL_IDS else axe).append(name)
+                for height in heights:
+                    name = f"{MOD}:{block_name(material, width, style, height)}"
+                    (pickaxe if material in PICKAXE_IDS else axe).append(name)
 
     for tool, values in (("axe", axe), ("pickaxe", pickaxe)):
         write_json(os.path.join(VANILLA_DATA, "tags", "block", "mineable", tool + ".json"),
@@ -1670,7 +2176,7 @@ def write_mineable_tags():
     return 2
 
 
-def write_recipes(material, craft, style, widths):
+def write_recipes(material, craft, style, widths, heights=(DEFAULT_HEIGHT,)):
     n = 0
 
     def recipe(name, body):
@@ -1747,14 +2253,23 @@ def write_recipes(material, craft, style, widths):
     # Two iron nuggets flank the hinge to pay for it, so the recipe says what the door does.
     if ingredient is not None:
         spring = style == "saloon"
+        timber = style == "stone"
         key = {"L": ingredient, "H": f"{MOD}:{HINGE}"}
         if spring:
             key["N"] = "minecraft:iron_nugget"
+        if timber:
+            # Any planks, and the door looks the same whichever were used. One texture is the
+            # point: a stone door in twelve woods would be twelve doors for a detail two pixels
+            # wide, and the frame is drawn in dark oak whatever went into the grid.
+            key["W"] = "#minecraft:planks"
         recipe(named(base), {
             "type": "minecraft:crafting_shaped",
             "category": "building",
             "key": key,
-            "pattern": ["LLN", "LLH", "LLN"] if spring else ["LL ", "LLH", "LL "],
+            # A stone door is a leaf of boards hung in a masonry jamb, and the grid says so:
+            # a column of stone beside a column of planks, on a hinge.
+            "pattern": ["LLN", "LLH", "LLN"] if spring
+                       else (["LW ", "LWH", "LW "] if timber else ["LL ", "LLH", "LL "]),
             "result": {"count": BASE_YIELD.get(tuple(widths), DEFAULT_YIELD),
                        "id": f"{MOD}:{named(base)}"},
         })
@@ -1767,6 +2282,42 @@ def write_recipes(material, craft, style, widths):
             "pattern": pattern,
             "result": {"count": 1, "id": f"{MOD}:{named(width)}"},
         })
+    n += write_tall_recipes(recipe, material, ingredient, style, widths, heights)
+    return n
+
+
+def write_tall_recipes(recipe, material, ingredient, style, widths, heights):
+    """A taller door is the ordinary one with another course laid on top.
+
+    Shapeless, because there is nothing about the arrangement worth remembering, and because a
+    shaped recipe would need one variant per position the door could sit in -- which is what the
+    glazing recipes above had to do.
+
+    One block per column per extra row, so the price follows the door rather than being a flat
+    fee. That does put a ceiling on it: a crafting grid holds nine, so the door plus its courses
+    must come to nine or fewer. Two columns and three extra rows is the widest tall thing this
+    can express, which is exactly a gate.
+    """
+    if ingredient is None:
+        return 0
+    n = 0
+    for height in heights:
+        if height == DEFAULT_HEIGHT:
+            continue
+        for width in widths:
+            courses = width * (height - DEFAULT_HEIGHT)
+            if courses + 1 > 9:
+                raise ValueError(
+                    f"{material} {width}x{height}: {courses + 1} ingredients will not fit a grid")
+            tall = block_name(material, width, style, height)
+            recipe(tall, {
+                "type": "minecraft:crafting_shapeless",
+                "category": "building",
+                "ingredients": [f"{MOD}:{block_name(material, width, style)}"]
+                               + [ingredient] * courses,
+                "result": {"count": 1, "id": f"{MOD}:{tall}"},
+            })
+            n += 1
     return n
 
 

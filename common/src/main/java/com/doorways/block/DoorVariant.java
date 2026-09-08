@@ -21,13 +21,14 @@ import net.minecraft.world.level.material.PushReaction;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One door: material × width × style.
+ * One door: material × width × height × style.
  *
  * <p>Only the <b>definition</b> lives here. Registration itself does not fit in this module:
  * Fabric registers directly at start-up, NeoForge requires its own event. Each loader iterates
  * {@link #ALL} its own way.
  */
-public record DoorVariant(Material material, int width, DoorMode mode, DoorStyle style) {
+public record DoorVariant(Material material, int width, int height, DoorMode mode,
+                          DoorStyle style) {
 
     /**
      * A door's material.
@@ -111,6 +112,26 @@ public record DoorVariant(Material material, int width, DoorMode mode, DoorStyle
     private static final Material BOOKSHELF = new Material("bookshelf", BlockSetType.OAK,
             Blocks.BOOKSHELF.defaultMapColor(), 1.5F, true, SoundType.WOOD, null);
 
+    /**
+     * Cut stone, in the two tones the game gives for free.
+     *
+     * <p>{@link BlockSetType#STONE} is vanilla's own, and it already answers every question a
+     * stone door raises: it opens by hand, it steps and breaks like stone, and it opens with the
+     * iron door's heavy sound, which is what a slab of masonry on a hinge should sound like.
+     *
+     * <p>Strength 4 sits between the woods at 3 and iron at 5. Cobblestone's own 2 would make a
+     * door that is quicker to break than the wall it stands in.
+     */
+    private static Material stone(String name, Block sample) {
+        return new Material(name, BlockSetType.STONE, sample.defaultMapColor(), 4.0F, false,
+                BlockSetType.STONE.soundType(), null);
+    }
+
+    /** Cobblestone and the darker one, which is cobblestone made of deepslate. */
+    public static final List<Material> STONES = List.of(
+            stone("cobblestone", Blocks.COBBLESTONE),
+            stone("cobbled_deepslate", Blocks.COBBLED_DEEPSLATE));
+
     /** Every material a door can be made of, in registration order. */
     public static final List<Material> MATERIALS = buildMaterials();
 
@@ -120,6 +141,7 @@ public record DoorVariant(Material material, int width, DoorMode mode, DoorStyle
         all.addAll(copperStates());
         all.add(GLASS);
         all.add(BOOKSHELF);
+        all.addAll(STONES);
         return List.copyOf(all);
     }
 
@@ -137,6 +159,7 @@ public record DoorVariant(Material material, int width, DoorMode mode, DoorStyle
             case SALOON, FUSUMA -> WOODS;
             case FULL_GLASS, SLIDING_GLASS -> List.of(GLASS);
             case BOOKSHELF -> List.of(BOOKSHELF);
+            case STONE -> STONES;
         };
     }
 
@@ -147,8 +170,12 @@ public record DoorVariant(Material material, int width, DoorMode mode, DoorStyle
         for (DoorStyle style : DoorStyle.values()) {
             for (Material material : materialsFor(style)) {
                 for (int width = DoorLayout.MIN_WIDTH; width <= DoorLayout.MAX_WIDTH; width++) {
-                    if (style.allowsWidth(width)) {
-                        all.add(new DoorVariant(material, width, style.modeFor(width), style));
+                    if (!style.allowsWidth(width)) {
+                        continue;
+                    }
+                    for (int height : style.heights()) {
+                        all.add(new DoorVariant(
+                                material, width, height, style.modeFor(width), style));
                     }
                 }
             }
@@ -156,16 +183,22 @@ public record DoorVariant(Material material, int width, DoorMode mode, DoorStyle
         return List.copyOf(all);
     }
 
-    /** Finds a variant by material name, width and style. */
+    /** Finds a variant by material name, width and style, at the usual height. */
     public static Optional<DoorVariant> find(String material, int width, DoorStyle style) {
+        return find(material, width, WideDoorBlock.DEFAULT_HEIGHT, style);
+    }
+
+    /** Finds a variant by material name, width, height and style. */
+    public static Optional<DoorVariant> find(String material, int width, int height,
+                                             DoorStyle style) {
         return ALL.stream()
                 .filter(v -> v.material.name().equals(material)
-                        && v.width == width && v.style == style)
+                        && v.width == width && v.height == height && v.style == style)
                 .findFirst();
     }
 
     public String name() {
-        return style.name(material.name(), width);
+        return style.name(material.name(), width, height);
     }
 
     public Identifier id(String modId) {
@@ -189,7 +222,10 @@ public record DoorVariant(Material material, int width, DoorMode mode, DoorStyle
     public WideDoorBlock createBlock(String modId) {
         BlockBehaviour.Properties base = BlockBehaviour.Properties.of()
                 .mapColor(material.color())
-                .instrument(NoteBlockInstrument.BASS)
+                // What a note block above it plays. Wood is a bass; masonry is a drum.
+                .instrument(style == DoorStyle.STONE
+                        ? NoteBlockInstrument.BASEDRUM
+                        : NoteBlockInstrument.BASS)
                 .strength(material.strength())
                 .noOcclusion()
                 .pushReaction(PushReaction.DESTROY)
@@ -200,8 +236,11 @@ public record DoorVariant(Material material, int width, DoorMode mode, DoorStyle
         // Every door is built through sized(): the state definition needs the width before the
         // constructor can hold one. This is the path registration takes; the codecs take the
         // same one.
+        // The three specialised classes exist only at the usual height, and each keeps the
+        // constructor it always had. Should one of them ever be given a height of its own, the
+        // guard in WideDoorBlock's constructor says so on the spot.
         if (material.weathering() != null) {
-            return WideDoorBlock.sized(width, mode, () -> new WeatheringWideDoorBlock(
+            return WideDoorBlock.sized(width, height, mode, () -> new WeatheringWideDoorBlock(
                     width, mode, style, material.type(), material.weathering(),
                     properties.randomTicks()));
         }
@@ -209,14 +248,14 @@ public record DoorVariant(Material material, int width, DoorMode mode, DoorStyle
         // every door -- to serve the 26 that slide and the 24 that swing both ways -- cost the
         // mod more blockstates than the whole of vanilla has.
         if (style.slides()) {
-            return WideDoorBlock.sized(width, mode, () ->
+            return WideDoorBlock.sized(width, height, mode, () ->
                     new SlidingDoorBlock(width, mode, style, material.type(), properties));
         }
         if (style.springLoaded()) {
-            return WideDoorBlock.sized(width, mode, () ->
+            return WideDoorBlock.sized(width, height, mode, () ->
                     new SpringDoorBlock(width, mode, style, material.type(), properties));
         }
-        return WideDoorBlock.sized(width, mode, () ->
-                new WideDoorBlock(width, mode, style, material.type(), properties));
+        return WideDoorBlock.sized(width, height, mode, () ->
+                new WideDoorBlock(width, height, mode, style, material.type(), properties));
     }
 }

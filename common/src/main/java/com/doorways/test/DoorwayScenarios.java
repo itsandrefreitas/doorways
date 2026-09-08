@@ -16,6 +16,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -26,7 +28,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.DoorHingeSide;
-import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -67,13 +68,13 @@ public final class DoorwayScenarios {
                 .thenIdle(2)
                 .thenExecute(() -> {
                     assertDoor(helper, door, open, Swing.OUT);
-                    assertVacated(helper, closed, open);
+                    assertVacated(helper, door, closed, open);
                 })
                 .thenExecute(() -> use(helper, open.get(0)))
                 .thenIdle(2)
                 .thenExecute(() -> {
                     assertDoor(helper, door, closed, Swing.CLOSED);
-                    assertVacated(helper, open, closed);
+                    assertVacated(helper, door, open, closed);
                 })
                 .thenSucceed();
     }
@@ -533,7 +534,80 @@ public final class DoorwayScenarios {
         }
     }
 
+    /**
+     * A door three rows tall stands, opens, and comes apart as one.
+     *
+     * <p>The whole vertical axis in a single scenario. Every loop in the block used to be a
+     * pair -- a column and the block above it -- and each of those pairs is now a loop over
+     * rows. A row missed in any one of them leaves a course of stone floating when the door is
+     * broken, or a door that refuses to be placed at all, and neither shows up in geometry.
+     *
+     * <p>It reads the middle row on purpose. That is the row that did not exist before: it is
+     * neither the anchor nor the row the anchor is reached from, and it is exactly what a rule
+     * written for two rows gets wrong.
+     */
+    public static void tallDoorStandsAndBreaksAsOne(GameTestHelper helper) {
+        Block door = door("cobblestone", 2, 3, DoorStyle.STONE);
+        BlockPos origin = new BlockPos(3, FLOOR_Y + 1, 3);
+        floor(helper, 8, 8);
+        place(helper, door, origin, Direction.SOUTH, DoorHingeSide.LEFT);
+
+        List<BlockPos> columns = footprint(helper, door, origin, Swing.CLOSED);
+        List<BlockPos> open = footprint(helper, door, origin, Swing.OUT);
+
+        // Six blocks stand, and between them they are worth exactly one door. The anchor is the
+        // bottom row of column 0; every other row of every column has to be worth nothing.
+        assertDoor(helper, door, columns, Swing.CLOSED);
+        assertDrops(helper, columns.get(0), 1);
+        assertDrops(helper, columns.get(0).above(1), 0);
+        assertDrops(helper, columns.get(0).above(2), 0);
+        for (int row = 0; row < 3; row++) {
+            assertDrops(helper, columns.get(1).above(row), 0);
+        }
+
+        helper.startSequence()
+                // Touched at the top row, which is the furthest a part can be from the anchor
+                // and still belong to the same door.
+                .thenExecute(() -> use(helper, columns.get(1).above(2)))
+                .thenIdle(2)
+                .thenExecute(() -> assertDoor(helper, door, open, Swing.OUT))
+                .thenExecute(() -> use(helper, columns.get(0).above(2)))
+                .thenIdle(2)
+                .thenExecute(() -> assertDoor(helper, door, columns, Swing.CLOSED))
+                // Broken at the middle row: nothing of the door may be left standing.
+                .thenExecute(() -> mine(helper, columns.get(1).above(1)))
+                .thenIdle(2)
+                .thenExecute(() -> {
+                    for (BlockPos column : columns) {
+                        for (int row = 0; row < 3; row++) {
+                            helper.assertBlockPresent(Blocks.AIR, column.above(row));
+                        }
+                    }
+                })
+                .thenSucceed();
+    }
+
     // ---------------------------------------------------------------- helpers
+
+    /**
+     * Breaks a block the way a player does.
+     *
+     * <p>Not {@code helper.destroyBlock}, which passes no entity and therefore never reaches
+     * {@code playerWillDestroy} -- and {@code playerWillDestroy} is the whole of the rule that a
+     * door comes apart as one. A test written on that path would have watched the rows above the
+     * break fall for want of support, seen no door left standing, and called it a pass.
+     *
+     * <p>The mock is asked for as a {@code Player} and narrowed here. The helper's method that
+     * hands back a {@code ServerPlayer} directly is marked for removal, and the one that is not
+     * builds the same object behind the wider type.
+     */
+    private static void mine(GameTestHelper helper, BlockPos pos) {
+        if (helper.makeMockServerPlayer(GameType.SURVIVAL) instanceof ServerPlayer player) {
+            player.gameMode.destroyBlock(helper.absolutePos(pos));
+            return;
+        }
+        helper.fail(Component.literal("the mock server player is no longer a ServerPlayer"));
+    }
 
     /** How many items this part's loot table yields. */
     private static void assertDrops(GameTestHelper helper, BlockPos pos, int expected) {
@@ -549,11 +623,16 @@ public final class DoorwayScenarios {
         return door(material, width, DoorStyle.SOLID);
     }
 
-    /** Looks up the registered door for this material, width and style. */
+    /** Looks up the registered door for this material, width and style, at the usual height. */
     private static Block door(String material, int width, DoorStyle style) {
-        DoorVariant variant = DoorVariant.find(material, width, style)
-                .orElseThrow(() -> new IllegalStateException(
-                        "no such variant: " + material + " " + width + " " + style));
+        return door(material, width, WideDoorBlock.DEFAULT_HEIGHT, style);
+    }
+
+    /** Looks up the registered door for this material, width, height and style. */
+    private static Block door(String material, int width, int height, DoorStyle style) {
+        DoorVariant variant = DoorVariant.find(material, width, height, style)
+                .orElseThrow(() -> new IllegalStateException("no such variant: " + material
+                        + " " + width + "x" + height + " " + style));
         Block block = BuiltInRegistries.BLOCK.getValue(variant.blockKey(Doorways.MOD_ID));
         if (block == null || block == Blocks.AIR) {
             throw new IllegalStateException("door not registered: " + variant.name());
@@ -580,14 +659,13 @@ public final class DoorwayScenarios {
     private static void place(GameTestHelper helper, Block door, BlockPos origin,
                               Direction facing, DoorHingeSide hinge) {
         WideDoorBlock block = (WideDoorBlock) door;
-        BlockState lower = block.withPart(block.withPowered(
+        BlockState foot = block.withRow(block.withPart(block.withPowered(
                 block.withHinge(door.defaultBlockState()
                         .setValue(WideDoorBlock.FACING, facing), hinge)
-                        .setValue(block.swingProperty(), DoorSwing.CLOSED), false)
-                .setValue(WideDoorBlock.HALF, DoubleBlockHalf.LOWER), 0);
+                        .setValue(block.swingProperty(), DoorSwing.CLOSED), false), 0), 0);
         BlockPos absolute = helper.absolutePos(origin);
-        helper.getLevel().setBlock(absolute, lower, Block.UPDATE_ALL);
-        door.setPlacedBy(helper.getLevel(), absolute, lower, null, ItemStack.EMPTY);
+        helper.getLevel().setBlock(absolute, foot, Block.UPDATE_ALL);
+        door.setPlacedBy(helper.getLevel(), absolute, foot, null, ItemStack.EMPTY);
     }
 
     /** The columns the door occupies in a given state, in test coordinates. */
@@ -610,24 +688,30 @@ public final class DoorwayScenarios {
     /** Requires the whole door, both halves, in the requested state. */
     private static void assertDoor(GameTestHelper helper, Block door, List<BlockPos> columns,
                                    Swing swing) {
+        // The height comes from the door itself, so every scenario in this file checks every
+        // row of whatever it placed without having to say how many there are.
+        int height = ((WideDoorBlock) door).height();
         for (BlockPos column : columns) {
-            for (BlockPos half : List.of(column, column.above())) {
-                helper.assertBlockPresent(door, half);
-                helper.assertTrue(WideDoorBlock.swingOf(helper.getBlockState(half)) == swing,
-                        "door at " + half + " should be " + swing);
+            for (int row = 0; row < height; row++) {
+                BlockPos part = column.above(row);
+                helper.assertBlockPresent(door, part);
+                helper.assertTrue(WideDoorBlock.swingOf(helper.getBlockState(part)) == swing,
+                        "door at " + part + " should be " + swing);
             }
         }
     }
 
-    /** Requires whatever the door left behind to be empty. */
-    private static void assertVacated(GameTestHelper helper, List<BlockPos> from,
+    /** Requires whatever the door left behind to be empty, to its full height. */
+    private static void assertVacated(GameTestHelper helper, Block door, List<BlockPos> from,
                                       List<BlockPos> to) {
+        int height = ((WideDoorBlock) door).height();
         for (BlockPos column : from) {
             if (to.contains(column)) {
                 continue;
             }
-            helper.assertBlockPresent(Blocks.AIR, column);
-            helper.assertBlockPresent(Blocks.AIR, column.above());
+            for (int row = 0; row < height; row++) {
+                helper.assertBlockPresent(Blocks.AIR, column.above(row));
+            }
         }
     }
 

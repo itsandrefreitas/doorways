@@ -9,7 +9,6 @@ import java.util.function.Supplier;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.DoubleHighBlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
@@ -106,9 +105,9 @@ public final class DoorwaysContent {
     /**
      * Registers everything and returns the doors, keyed by variant.
      *
-     * <p>Doors use {@link DoubleHighBlockItem}, the same item vanilla doors use, which already
-     * handles clearing the position above before placing. The remaining columns are placed by
-     * the block's {@code setPlacedBy}.
+     * <p>Doors use {@link TallDoorBlockItem}, which clears the rest of the clicked column before
+     * placing -- vanilla's own item only reaches one block up. The remaining columns are placed
+     * by the block's {@code setPlacedBy}.
      */
     public static Map<DoorVariant, Supplier<Block>> registerAll(String modId, Registrar registrar) {
         Map<DoorVariant, Supplier<Block>> doors = new LinkedHashMap<>();
@@ -125,7 +124,7 @@ public final class DoorwaysContent {
                         .useBlockDescriptionPrefix()
                         .requiredFeatures(door.requiredFeatures())
                         .setId(itemKey);
-                DoubleHighBlockItem item = new DoubleHighBlockItem(door, properties);
+                TallDoorBlockItem item = new TallDoorBlockItem((WideDoorBlock) door, properties);
                 // Without this the game does not know which item matches this block, which
                 // breaks pick-block and drops. It is what vanilla's Items.registerItem does.
                 item.registerBlocks(Item.BY_BLOCK, item);

@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "L": "minecraft:cobblestone",
+    "H": "doorways:iron_hinge",
+    "W": "#minecraft:planks"
+  },
+  "pattern": [
+    "LW ",
+    "LWH",
+    "LW "
+  ],
+  "result": {
+    "count": 4,
+    "id": "doorways:cobblestone_doorway_1"
+  }
+}

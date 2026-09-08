@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    "doorways:cobblestone_doorway_2",
+    "minecraft:cobblestone",
+    "minecraft:cobblestone"
+  ],
+  "result": {
+    "count": 1,
+    "id": "doorways:cobblestone_doorway_2x3"
+  }
+}

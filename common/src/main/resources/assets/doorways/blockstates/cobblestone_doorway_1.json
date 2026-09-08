@@ -1,0 +1,124 @@
+{
+  "variants": {
+    "facing=east,half=lower,hinge=left,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single"
+    },
+    "facing=east,half=lower,hinge=left,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single_open_low",
+      "y": 90
+    },
+    "facing=east,half=lower,hinge=right,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single"
+    },
+    "facing=east,half=lower,hinge=right,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single_open_high",
+      "y": 270
+    },
+    "facing=east,half=upper,hinge=left,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_top_single"
+    },
+    "facing=east,half=upper,hinge=left,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_top_single_open_low",
+      "y": 90
+    },
+    "facing=east,half=upper,hinge=right,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_top_single"
+    },
+    "facing=east,half=upper,hinge=right,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_top_single_open_high",
+      "y": 270
+    },
+    "facing=north,half=lower,hinge=left,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single",
+      "y": 270
+    },
+    "facing=north,half=lower,hinge=left,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single_open_low"
+    },
+    "facing=north,half=lower,hinge=right,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single",
+      "y": 270
+    },
+    "facing=north,half=lower,hinge=right,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single_open_high",
+      "y": 180
+    },
+    "facing=north,half=upper,hinge=left,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_top_single",
+      "y": 270
+    },
+    "facing=north,half=upper,hinge=left,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_top_single_open_low"
+    },
+    "facing=north,half=upper,hinge=right,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_top_single",
+      "y": 270
+    },
+    "facing=north,half=upper,hinge=right,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_top_single_open_high",
+      "y": 180
+    },
+    "facing=south,half=lower,hinge=left,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=left,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single_open_low",
+      "y": 180
+    },
+    "facing=south,half=lower,hinge=right,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=right,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single_open_high"
+    },
+    "facing=south,half=upper,hinge=left,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_top_single",
+      "y": 90
+    },
+    "facing=south,half=upper,hinge=left,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_top_single_open_low",
+      "y": 180
+    },
+    "facing=south,half=upper,hinge=right,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_top_single",
+      "y": 90
+    },
+    "facing=south,half=upper,hinge=right,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_top_single_open_high"
+    },
+    "facing=west,half=lower,hinge=left,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=left,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single_open_low",
+      "y": 270
+    },
+    "facing=west,half=lower,hinge=right,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=right,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_bottom_single_open_high",
+      "y": 90
+    },
+    "facing=west,half=upper,hinge=left,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_top_single",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=left,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_top_single_open_low",
+      "y": 270
+    },
+    "facing=west,half=upper,hinge=right,swing=closed": {
+      "model": "doorways:block/cobblestone_doorway_top_single",
+      "y": 180
+    },
+    "facing=west,half=upper,hinge=right,swing=out": {
+      "model": "doorways:block/cobblestone_doorway_top_single_open_high",
+      "y": 90
+    }
+  }
+}

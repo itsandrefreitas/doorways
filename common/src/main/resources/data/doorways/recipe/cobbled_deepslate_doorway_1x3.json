@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    "doorways:cobbled_deepslate_doorway_1",
+    "minecraft:cobbled_deepslate"
+  ],
+  "result": {
+    "count": 1,
+    "id": "doorways:cobbled_deepslate_doorway_1x3"
+  }
+}

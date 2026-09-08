@@ -49,13 +49,14 @@ import net.minecraft.world.level.redstone.Orientation;
 import net.minecraft.world.level.pathfinder.PathComputationType;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jspecify.annotations.Nullable;
 
 /**
- * An articulated door 1 to 4 blocks wide and 2 tall.
+ * An articulated door 1 to 4 blocks wide and 2 to {@value #MAX_HEIGHT} tall.
  *
  * <p>A single class covers all four widths and both modes, as §10 of the specification requires
  * ("generalise without copying the same logic four times"). All the geometry comes from
@@ -71,6 +72,12 @@ public class WideDoorBlock extends Block implements EntityBlock {
                 Codec.intRange(DoorLayout.MIN_WIDTH, DoorLayout.MAX_WIDTH)
                         .fieldOf("width")
                         .forGetter(b -> b.width),
+                // Optional, and defaulting to what every door was before gates existed, so that
+                // the codec still reads a door written without one. Qualified because the
+                // constants are declared further down and a simple name cannot reach forwards.
+                Codec.intRange(WideDoorBlock.DEFAULT_HEIGHT, WideDoorBlock.MAX_HEIGHT)
+                        .optionalFieldOf("height", WideDoorBlock.DEFAULT_HEIGHT)
+                        .forGetter(b -> b.height),
                 Codec.STRING
                         .xmap(DoorMode::valueOf, DoorMode::name)
                         .fieldOf("mode")
@@ -81,9 +88,9 @@ public class WideDoorBlock extends Block implements EntityBlock {
                         .forGetter(b -> b.style),
                 BlockSetType.CODEC.fieldOf("block_set_type").forGetter(b -> b.type),
                 propertiesCodec())
-            .apply(i, (width, mode, style, type, properties) ->
-                    sized(width, mode, () ->
-                            new WideDoorBlock(width, mode, style, type, properties))));
+            .apply(i, (width, height, mode, style, type, properties) ->
+                    sized(width, height, mode, () ->
+                            new WideDoorBlock(width, height, mode, style, type, properties))));
 
     public static final EnumProperty<Direction> FACING = HorizontalDirectionalBlock.FACING;
     public static final EnumProperty<DoubleBlockHalf> HALF = BlockStateProperties.DOUBLE_BLOCK_HALF;
@@ -148,8 +155,33 @@ public class WideDoorBlock extends Block implements EntityBlock {
             IntegerProperty.create("part", 0, 3),
     };
 
+    /** The height every door had before there were gates, and the one a door keeps by default. */
+    public static final int DEFAULT_HEIGHT = 2;
+
+    /** Doors stop at 3, gates go to 5. Nothing in the geometry cares which is which (D-40). */
+    public static final int MAX_HEIGHT = 5;
+
+    /**
+     * The column's vertical index, one property per height -- and <b>null at height 2</b>.
+     *
+     * <p>That null is the whole point. A door two blocks tall keeps {@link #HALF}, the vanilla
+     * property it has carried since the first version, so every door already standing in every
+     * player's world reads back exactly as it was written. Replacing it with {@code row=0..1}
+     * would have been tidier and would have reset all 226 doors to their default state on load.
+     *
+     * <p>Above that the index is a number, because {@code DoubleBlockHalf} has two values and a
+     * gate has five rows. Read it through {@link #rowOf}, which asks the block which of the two
+     * it declares -- the same arrangement {@link #PARTS} uses for the horizontal index.
+     */
+    private static final IntegerProperty[] ROWS = {
+            null, null, null,
+            IntegerProperty.create("row", 0, 2),
+            IntegerProperty.create("row", 0, 3),
+            IntegerProperty.create("row", 0, 4),
+    };
+
     /** What a door needs to know about itself before its constructor has run. */
-    private record Shape(int width, DoorMode mode) {}
+    private record Shape(int width, int height, DoorMode mode) {}
 
     /**
      * The shape of the door being built, for as long as its constructor runs.
@@ -173,7 +205,18 @@ public class WideDoorBlock extends Block implements EntityBlock {
      * of its subclasses.
      */
     public static <T extends Block> T sized(int width, DoorMode mode, Supplier<T> factory) {
-        BUILDING.set(new Shape(width, mode));
+        return sized(width, DEFAULT_HEIGHT, mode, factory);
+    }
+
+    /** The same, for a door taller than the two blocks every door used to be. */
+    public static <T extends Block> T sized(int width, int height, DoorMode mode,
+                                            Supplier<T> factory) {
+        if (height < DEFAULT_HEIGHT || height > MAX_HEIGHT) {
+            throw new IllegalArgumentException(
+                    "height must be between " + DEFAULT_HEIGHT + " and " + MAX_HEIGHT
+                            + ", was " + height);
+        }
+        BUILDING.set(new Shape(width, height, mode));
         try {
             return factory.get();
         } finally {
@@ -238,25 +281,40 @@ public class WideDoorBlock extends Block implements EntityBlock {
     }
 
     private final int width;
+    private final int height;
     private final DoorMode mode;
     private final DoorStyle style;
     private final BlockSetType type;
 
+    /** A door of the height every door was before there were gates. */
     public WideDoorBlock(int width, DoorMode mode, DoorStyle style, BlockSetType type,
+                         BlockBehaviour.Properties properties) {
+        this(width, DEFAULT_HEIGHT, mode, style, type, properties);
+    }
+
+    public WideDoorBlock(int width, int height, DoorMode mode, DoorStyle style, BlockSetType type,
                          BlockBehaviour.Properties properties) {
         // The sound is chosen by DoorVariant: BlockSetType still supplies the open and
         // close sounds, but step, break and place follow the material.
         super(properties);
+        // The state definition has already run, off the shape handed to sized(). If the
+        // constructor was given a different height, the properties this block declares are not
+        // the properties it is about to read -- a mismatch that would surface as a door whose
+        // top rows are unreachable states. Say so here rather than there.
+        if (BUILDING.get().height() != height) {
+            throw new IllegalStateException("built through sized(..., "
+                    + BUILDING.get().height() + ", ...) but constructed at height " + height);
+        }
         this.width = width;
+        this.height = height;
         this.mode = mode;
         this.style = style;
         this.type = type;
         BlockState base = stateDefinition.any()
                 .setValue(FACING, Direction.NORTH)
-                .setValue(HALF, DoubleBlockHalf.LOWER)
                 .setValue(swingProperty(), DoorSwing.CLOSED);
-        registerDefaultState(
-                withPart(withPowered(withHinge(base, DoorHingeSide.LEFT), false), 0));
+        registerDefaultState(withRow(
+                withPart(withPowered(withHinge(base, DoorHingeSide.LEFT), false), 0), 0));
     }
 
     @Override
@@ -271,7 +329,16 @@ public class WideDoorBlock extends Block implements EntityBlock {
             throw new IllegalStateException(
                     "a door must be built through WideDoorBlock.sized(width, mode, ...)");
         }
-        builder.add(FACING, HALF, swingProperty());
+        builder.add(FACING, swingProperty());
+        // The vertical index, in whichever of its two spellings this height uses (see ROWS).
+        // Written out rather than folded into a ternary, which would have to find a common type
+        // for an enum property and an integer one.
+        IntegerProperty row = ROWS[building.height()];
+        if (row == null) {
+            builder.add(HALF);
+        } else {
+            builder.add(row);
+        }
         // Three properties every door has, and three it declares only if it reads them. A
         // property added here is added to all 226 doors, used or not (D-38).
         if (building.mode() != DoorMode.SPLIT) {
@@ -287,6 +354,11 @@ public class WideDoorBlock extends Block implements EntityBlock {
 
     public int width() {
         return width;
+    }
+
+    /** How many rows this door stands: 2 or 3 for a door, up to {@link #MAX_HEIGHT} for a gate. */
+    public int height() {
+        return height;
     }
 
     public DoorMode mode() {
@@ -445,19 +517,44 @@ public class WideDoorBlock extends Block implements EntityBlock {
     }
 
     /**
-     * The position of this part's <b>lower</b> half.
-     *
-     * <p>The geometry is entirely horizontal and assumes the origin sits at the bottom level.
-     * Without this normalisation, interacting with the upper half yields an origin one block
-     * too high: the door is rebuilt at {@code y+1}, the original lower half is orphaned, and
-     * the door appears to grow upwards.
+     * The property carrying the vertical index, or null at height 2 -- where {@link #HALF}
+     * carries it instead, so that doors written before there were gates read back unchanged.
      */
-    private static BlockPos lowerHalf(BlockState state, BlockPos pos) {
-        return state.getValue(HALF) == DoubleBlockHalf.UPPER ? pos.below() : pos;
+    public @Nullable IntegerProperty rowProperty() {
+        return ROWS[height];
+    }
+
+    /** Which row of the door this block is, counting up from the floor. */
+    public static int rowOf(BlockState state) {
+        WideDoorBlock door = (WideDoorBlock) state.getBlock();
+        IntegerProperty row = door.rowProperty();
+        return row == null
+                ? (state.getValue(HALF) == DoubleBlockHalf.UPPER ? 1 : 0)
+                : state.getValue(row);
+    }
+
+    /** Sets the row, in whichever spelling this height uses. */
+    public BlockState withRow(BlockState state, int row) {
+        IntegerProperty property = rowProperty();
+        return property == null
+                ? state.setValue(HALF, row == 0 ? DoubleBlockHalf.LOWER : DoubleBlockHalf.UPPER)
+                : state.setValue(property, row);
     }
 
     /**
-     * The lower half of column {@code PART 0}: the one position every part of a door agrees on.
+     * The position of this part's <b>bottom</b> row.
+     *
+     * <p>The geometry is entirely horizontal and assumes the origin sits at the bottom level.
+     * Without this normalisation, interacting with any row above the first yields an origin that
+     * many blocks too high: the door is rebuilt higher up, the original bottom row is orphaned,
+     * and the door appears to grow upwards.
+     */
+    private static BlockPos footOf(BlockState state, BlockPos pos) {
+        return pos.below(rowOf(state));
+    }
+
+    /**
+     * The bottom row of column {@code PART 0}: the one position every part of a door agrees on.
      *
      * <p>It is the structure's origin (§3), reachable from any part without a block entity or a
      * search. What it is used for is a place to keep the one thing a door has to share -- the
@@ -465,7 +562,7 @@ public class WideDoorBlock extends Block implements EntityBlock {
      */
     public BlockPos anchorOf(BlockState state, BlockPos pos) {
         return WideDoorGeometry.origin(
-                lowerHalf(state, pos), layoutOf(state), partOf(state), swingOf(state));
+                footOf(state, pos), layoutOf(state), partOf(state), swingOf(state));
     }
 
     /** The geometric layout matching a state. */
@@ -480,11 +577,73 @@ public class WideDoorBlock extends Block implements EntityBlock {
 
     // ------------------------------------------------------------------ shape
 
+    /**
+     * How much of a drawn jamb a player can actually walk into: two pixels of the three.
+     *
+     * <p>The jambs are drawn three pixels wide, because that is the thickness of the leaf and the
+     * swung models only line up when the two match. Solid to the same three, a one-column
+     * doorway measures ten pixels across and a player is nine and a half -- passable, and it
+     * feels it: you catch on both sides walking through your own front door.
+     *
+     * <p>So the stone you touch stops one pixel short of the stone you see, and the doorway
+     * opens to twelve. It is a lie, and a deliberate one: it lives on the outermost pixel of a
+     * three-pixel band at the very edge of the opening, where nothing can be stood on, aimed at
+     * or seen past. Vanilla tells larger ones than this -- a fence is drawn four pixels wide and
+     * collides as a wall a block and a half high.
+     */
+    private static final double JAMB_SOLID = 2.0;
+
+    /**
+     * The slab at one end of the block, along a given direction.
+     *
+     * <p>Only ever used cut down by {@link #jambsOf} to the plane the door hangs in. On its own
+     * it is the full depth of the block, which as a jamb would narrow the passage through the
+     * doorway along its whole length rather than only where the stone is drawn.
+     */
+    private static final Map<Direction, VoxelShape> END_SLABS = Map.of(
+            Direction.EAST, Block.box(16.0 - JAMB_SOLID, 0.0, 0.0, 16.0, 16.0, 16.0),
+            Direction.WEST, Block.box(0.0, 0.0, 0.0, JAMB_SOLID, 16.0, 16.0),
+            Direction.SOUTH, Block.box(0.0, 0.0, 16.0 - JAMB_SOLID, 16.0, 16.0, 16.0),
+            Direction.NORTH, Block.box(0.0, 0.0, 0.0, 16.0, 16.0, JAMB_SOLID));
+
+    /**
+     * The masonry this part stands in, as something to walk into.
+     *
+     * <p>A stone doorway's jambs are the one part of a door here that does not move, and the
+     * only part a player can collide with that is not the leaf. They belong to the ends of the
+     * <b>whole door</b>: the first column carries the one at the low end of the wall line and
+     * the last carries the one at the high end, which on a one-column door is both.
+     *
+     * <p>Built as the intersection of the end slab with {@link #LEAF_SHAPES}, the plane the door
+     * hangs in. That is not cleverness for its own sake -- it is what makes the box land at the
+     * right depth without this method having to know which way round the shape table is indexed,
+     * a convention that cannot be checked except by standing in the doorway.
+     */
+    private VoxelShape jambsOf(BlockState state) {
+        if (!style.jambed()) {
+            return Shapes.empty();
+        }
+        Direction facing = state.getValue(FACING);
+        Direction wall = WideDoorGeometry.toMinecraft(layoutOf(state).wallAxis());
+        VoxelShape plane = LEAF_SHAPES.get(facing);
+        VoxelShape jambs = Shapes.empty();
+        int part = partOf(state);
+        if (part == 0) {
+            jambs = Shapes.join(plane, END_SLABS.get(wall.getOpposite()), BooleanOp.AND);
+        }
+        if (part == width - 1) {
+            jambs = Shapes.or(jambs,
+                    Shapes.join(plane, END_SLABS.get(wall), BooleanOp.AND));
+        }
+        return jambs;
+    }
+
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos,
                                   CollisionContext context) {
         Swing swing = swingOf(state);
         Direction leaf = WideDoorGeometry.leafDirection(layoutOf(state), partOf(state), swing);
+        VoxelShape jambs = jambsOf(state);
 
         if (style.slides()) {
             if (swing == Swing.CLOSED) {
@@ -496,7 +655,9 @@ public class WideDoorBlock extends Block implements EntityBlock {
         }
 
         boolean centred = style.springLoaded() && swing == Swing.CLOSED;
-        return (centred ? CENTRED_LEAF_SHAPES : LEAF_SHAPES).get(leaf);
+        VoxelShape leafShape = (centred ? CENTRED_LEAF_SHAPES : LEAF_SHAPES).get(leaf);
+        // The jambs stand whether the door is shut or open, which is the whole point of them.
+        return jambs.isEmpty() ? leafShape : Shapes.or(leafShape, jambs);
     }
 
     /**
@@ -541,13 +702,14 @@ public class WideDoorBlock extends Block implements EntityBlock {
     /**
      * The clicked position takes {@code PART 0}; the door extends to the player's right, along
      * the wall axis. Returns {@code null} -- cancelling placement -- if any of the
-     * {@code width × 2} positions is unavailable (§4, atomic).
+     * {@code width × height} positions is unavailable (§4, atomic).
      */
     @Override
     public @Nullable BlockState getStateForPlacement(BlockPlaceContext context) {
         Level level = context.getLevel();
         BlockPos clicked = context.getClickedPos();
-        if (clicked.getY() >= level.getMaxY()) {
+        // The whole column has to fit under the world's ceiling, not merely the row above.
+        if (clicked.getY() + height - 1 > level.getMaxY()) {
             return null;
         }
 
@@ -561,9 +723,8 @@ public class WideDoorBlock extends Block implements EntityBlock {
         // The hinge plays no part in this choice: the closed footprint is a line along the wall
         // and does not depend on the rotation axis.
         for (int clickedPart : alignmentPreference()) {
-            BlockState state = withPart(defaultBlockState()
-                    .setValue(FACING, context.getHorizontalDirection())
-                    .setValue(HALF, DoubleBlockHalf.LOWER), clickedPart);
+            BlockState state = withRow(withPart(defaultBlockState()
+                    .setValue(FACING, context.getHorizontalDirection()), clickedPart), 0);
 
             DoorLayout layout = layoutOf(state);
             BlockPos origin = WideDoorGeometry.origin(clicked, layout, clickedPart, Swing.CLOSED);
@@ -627,8 +788,10 @@ public class WideDoorBlock extends Block implements EntityBlock {
 
     private boolean fits(Level level, BlockPlaceContext context, List<BlockPos> columns) {
         for (BlockPos column : columns) {
-            if (!canOccupy(level, column, context) || !canOccupy(level, column.above(), context)) {
-                return false;
+            for (int row = 0; row < height; row++) {
+                if (!canOccupy(level, column.above(row), context)) {
+                    return false;
+                }
             }
             BlockPos below = column.below();
             if (!level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)) {
@@ -667,7 +830,7 @@ public class WideDoorBlock extends Block implements EntityBlock {
     }
 
     /**
-     * Places the remaining {@code width × 2 - 1} parts.
+     * Places the remaining {@code width × height - 1} parts.
      *
      * <p>{@code placed} is the clicked column, which the game has already placed. It can be any
      * {@code PART}, not necessarily 0 -- it depends on the hinge (see
@@ -683,12 +846,13 @@ public class WideDoorBlock extends Block implements EntityBlock {
         try {
             for (int part = 0; part < layout.width(); part++) {
                 BlockPos column = columns.get(part);
-                BlockState lower = withPart(state, part).setValue(HALF, DoubleBlockHalf.LOWER);
+                BlockState foot = withRow(withPart(state, part), 0);
                 if (!column.equals(placed)) {
-                    level.setBlock(column, lower, Block.UPDATE_ALL);
+                    level.setBlock(column, foot, Block.UPDATE_ALL);
                 }
-                level.setBlock(column.above(), lower.setValue(HALF, DoubleBlockHalf.UPPER),
-                        Block.UPDATE_ALL);
+                for (int row = 1; row < height; row++) {
+                    level.setBlock(column.above(row), withRow(foot, row), Block.UPDATE_ALL);
+                }
             }
         } finally {
             inTransaction(false);
@@ -788,7 +952,7 @@ public class WideDoorBlock extends Block implements EntityBlock {
     private void onSignalChanged(Level level, BlockState state, BlockPos pos) {
         Swing swing = swingOf(state);
         DoorLayout layout = layoutOf(state);
-        BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), swing);
+        BlockPos origin = WideDoorGeometry.origin(footOf(state, pos), layout, partOf(state), swing);
         boolean signal = hasSignal(level, WideDoorGeometry.columns(origin, layout, Swing.CLOSED));
 
         if (signal == poweredOf(state)) {
@@ -828,7 +992,8 @@ public class WideDoorBlock extends Block implements EntityBlock {
         if (inTransaction()) {
             return true;
         }
-        if (state.getValue(HALF) == DoubleBlockHalf.UPPER) {
+        // Every row but the first stands on the one under it; the first stands on the ground.
+        if (rowOf(state) > 0) {
             return level.getBlockState(pos.below()).is(this);
         }
         BlockPos below = pos.below();
@@ -878,11 +1043,12 @@ public class WideDoorBlock extends Block implements EntityBlock {
         return oldState.getBlock() instanceof WideDoorBlock old
                 && old != this
                 && old.width == width
+                && old.height == height
                 && old.mode == mode
                 && old.style == style
                 && oldState.getValue(FACING) == state.getValue(FACING)
                 && old.hingeOf(oldState) == hingeOf(state)
-                && oldState.getValue(HALF) == state.getValue(HALF)
+                && rowOf(oldState) == rowOf(state)
                 && oldState.getValue(swingProperty()) == state.getValue(swingProperty())
                 && old.partOf(oldState) == partOf(state);
     }
@@ -958,13 +1124,14 @@ public class WideDoorBlock extends Block implements EntityBlock {
         DoorLayout layout = layoutOf(state);
         Swing swing = swingOf(state);
         BlockPos origin = WideDoorGeometry.origin(
-                lowerHalf(state, pos), layout, partOf(state), swing);
+                footOf(state, pos), layout, partOf(state), swing);
         List<BlockPos> columns = WideDoorGeometry.columns(origin, layout, swing);
 
         boolean changed = false;
         for (BlockPos column : columns) {
-            changed |= paint(level, column, pattern);
-            changed |= paint(level, column.above(), pattern);
+            for (int row = 0; row < height; row++) {
+                changed |= paint(level, column.above(row), pattern);
+            }
         }
         return changed;
     }
@@ -1017,7 +1184,7 @@ public class WideDoorBlock extends Block implements EntityBlock {
             return Swing.OUT;
         }
         Direction facing = state.getValue(FACING);
-        Vec3 fromDoor = player.position().subtract(Vec3.atCenterOf(lowerHalf(state, pos)));
+        Vec3 fromDoor = player.position().subtract(Vec3.atCenterOf(footOf(state, pos)));
         double side = fromDoor.x * facing.getStepX() + fromDoor.z * facing.getStepZ();
 
         // FACING points away from whoever placed the door (D-04), so a player standing on the
@@ -1037,13 +1204,13 @@ public class WideDoorBlock extends Block implements EntityBlock {
                           Swing targetSwing, boolean targetPowered, boolean audible) {
         DoorLayout layout = layoutOf(state);
         Swing swing = swingOf(state);
-        BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), swing);
+        BlockPos origin = WideDoorGeometry.origin(footOf(state, pos), layout, partOf(state), swing);
         boolean moves = targetSwing != swing;
 
         if (moves) {
             for (BlockPos column :
                     WideDoorGeometry.newlyOccupied(origin, layout, swing, targetSwing)) {
-                if (!isFree(level, column) || !isFree(level, column.above())) {
+                if (!isFreeColumn(level, column)) {
                     if (audible) {
                         level.playSound(null, pos, SoundEvents.CHEST_LOCKED,
                                 SoundSource.BLOCKS, 0.6F, 1.0F);
@@ -1062,8 +1229,9 @@ public class WideDoorBlock extends Block implements EntityBlock {
         if (moves) {
             for (BlockPos column :
                     WideDoorGeometry.newlyOccupied(origin, layout, swing, targetSwing)) {
-                breakLoose(level, column);
-                breakLoose(level, column.above());
+                for (int row = 0; row < height; row++) {
+                    breakLoose(level, column.above(row));
+                }
             }
         }
 
@@ -1078,20 +1246,22 @@ public class WideDoorBlock extends Block implements EntityBlock {
             // opening a painted fusuma wiped it.
             if (layout.movesBlocks()) {
                 for (BlockPos column : from) {
-                    clear(level, column);
-                    clear(level, column.above());
+                    for (int row = 0; row < height; row++) {
+                        clear(level, column.above(row));
+                    }
                 }
             }
             for (int part = 0; part < layout.width(); part++) {
                 // Set on the way out and cleared on the way back, by the tick above. Doors
                 // that swing have nothing to record and withMoving leaves them alone.
-                BlockState lower = withMoving(withPowered(withPart(state, part)
+                BlockState foot = withMoving(withRow(withPowered(withPart(state, part)
                         .setValue(swingProperty(), WideDoorGeometry.toMinecraft(targetSwing)),
-                        targetPowered)
-                        .setValue(HALF, DoubleBlockHalf.LOWER), moves);
-                level.setBlock(to.get(part), lower, Block.UPDATE_CLIENTS);
-                level.setBlock(to.get(part).above(), lower.setValue(HALF, DoubleBlockHalf.UPPER),
-                        Block.UPDATE_CLIENTS);
+                        targetPowered), 0), moves);
+                level.setBlock(to.get(part), foot, Block.UPDATE_CLIENTS);
+                for (int row = 1; row < height; row++) {
+                    level.setBlock(to.get(part).above(row), withRow(foot, row),
+                            Block.UPDATE_CLIENTS);
+                }
             }
         } finally {
             inTransaction(false);
@@ -1105,8 +1275,9 @@ public class WideDoorBlock extends Block implements EntityBlock {
 
         // A single flush at the end, once the structure is consistent again (D-08).
         for (BlockPos column : to) {
-            level.updateNeighborsAt(column, this);
-            level.updateNeighborsAt(column.above(), this);
+            for (int row = 0; row < height; row++) {
+                level.updateNeighborsAt(column.above(row), this);
+            }
         }
 
         // Two reasons to come back later, and a door needs at most one of them.
@@ -1139,6 +1310,16 @@ public class WideDoorBlock extends Block implements EntityBlock {
         // player would leave the sound inaudible to them.
         level.playSound(null, pos, targetSwing.isOpen() ? type.doorOpen() : type.doorClose(),
                 SoundSource.BLOCKS, 1.0F, level.getRandom().nextFloat() * 0.1F + 0.9F);
+        return true;
+    }
+
+    /** Whether the leaf may occupy every row of this column. */
+    private boolean isFreeColumn(Level level, BlockPos column) {
+        for (int row = 0; row < height; row++) {
+            if (!isFree(level, column.above(row))) {
+                return false;
+            }
+        }
         return true;
     }
 
@@ -1177,10 +1358,12 @@ public class WideDoorBlock extends Block implements EntityBlock {
      * plate, the signal drops, the door closes, the plate touches it again, and so on until the
      * server aborts the update chain.
      */
-    private static boolean hasSignal(Level level, List<BlockPos> columns) {
+    private boolean hasSignal(Level level, List<BlockPos> columns) {
         for (BlockPos column : columns) {
-            if (level.hasNeighborSignal(column) || level.hasNeighborSignal(column.above())) {
-                return true;
+            for (int row = 0; row < height; row++) {
+                if (level.hasNeighborSignal(column.above(row))) {
+                    return true;
+                }
             }
         }
         return false;
@@ -1190,11 +1373,12 @@ public class WideDoorBlock extends Block implements EntityBlock {
     protected List<BlockPos> structurePositions(BlockState state, BlockPos pos) {
         DoorLayout layout = layoutOf(state);
         Swing swing = swingOf(state);
-        BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), swing);
-        List<BlockPos> all = new ArrayList<>();
+        BlockPos origin = WideDoorGeometry.origin(footOf(state, pos), layout, partOf(state), swing);
+        List<BlockPos> all = new ArrayList<>(width * height);
         for (BlockPos column : WideDoorGeometry.columns(origin, layout, swing)) {
-            all.add(column);
-            all.add(column.above());
+            for (int row = 0; row < height; row++) {
+                all.add(column.above(row));
+            }
         }
         return all;
     }
@@ -1209,22 +1393,23 @@ public class WideDoorBlock extends Block implements EntityBlock {
     protected void convertStructure(Level level, BlockState state, BlockPos pos, Block target) {
         DoorLayout layout = layoutOf(state);
         Swing swing = swingOf(state);
-        BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), swing);
+        BlockPos origin = WideDoorGeometry.origin(footOf(state, pos), layout, partOf(state), swing);
         List<BlockPos> columns = WideDoorGeometry.columns(origin, layout, swing);
 
         inTransaction(true);
         try {
             for (int part = 0; part < layout.width(); part++) {
-                // The target is the same door in another material -- same width, same mode --
-                // so this door's own accessors describe its state correctly.
-                BlockState lower = withPart(withPowered(withHinge(target.defaultBlockState()
+                // The target is the same door in another material -- same width, same height,
+                // same mode -- so this door's own accessors describe its state correctly.
+                BlockState foot = withRow(withPart(withPowered(withHinge(target.defaultBlockState()
                         .setValue(FACING, state.getValue(FACING)), hingeOf(state))
                         .setValue(swingProperty(), state.getValue(swingProperty())),
-                        poweredOf(state)), part)
-                        .setValue(HALF, DoubleBlockHalf.LOWER);
-                level.setBlock(columns.get(part), lower, Block.UPDATE_CLIENTS);
-                level.setBlock(columns.get(part).above(),
-                        lower.setValue(HALF, DoubleBlockHalf.UPPER), Block.UPDATE_CLIENTS);
+                        poweredOf(state)), part), 0);
+                level.setBlock(columns.get(part), foot, Block.UPDATE_CLIENTS);
+                for (int row = 1; row < height; row++) {
+                    level.setBlock(columns.get(part).above(row), withRow(foot, row),
+                            Block.UPDATE_CLIENTS);
+                }
             }
         } finally {
             inTransaction(false);
@@ -1270,19 +1455,19 @@ public class WideDoorBlock extends Block implements EntityBlock {
     }
 
     /**
-     * The structure's anchor: the lower half of column {@code PART 0}.
+     * The structure's anchor: the bottom row of column {@code PART 0}.
      *
-     * <p>It is the only part whose loot table drops anything -- the others fail the
-     * {@code half=lower, part=0} condition. It is the same trick vanilla {@code oak_door} uses
-     * to guarantee a single drop from a 2-block door, generalised across width.
+     * <p>It is the only part whose loot table drops anything -- the others fail its condition on
+     * the row and the column. It is the same trick vanilla {@code oak_door} uses to guarantee a
+     * single drop from a 2-block door, generalised across both width and height.
      */
     private void removeRest(Level level, BlockPos pos, BlockState state, boolean dropAnchor) {
         DoorLayout layout = layoutOf(state);
         Swing swing = swingOf(state);
-        BlockPos origin = WideDoorGeometry.origin(lowerHalf(state, pos), layout, partOf(state), swing);
+        BlockPos origin = WideDoorGeometry.origin(footOf(state, pos), layout, partOf(state), swing);
         List<BlockPos> columns = WideDoorGeometry.columns(origin, layout, swing);
 
-        // The anchor -- the lower half of column PART 0 -- is the only part whose loot table
+        // The anchor -- the bottom row of column PART 0 -- is the only part whose loot table
         // drops anything. When the player breaks any other part its loot is empty, so the item
         // has to be dropped explicitly here.
         BlockPos anchor = columns.get(0);
@@ -1301,10 +1486,11 @@ public class WideDoorBlock extends Block implements EntityBlock {
             popResource(level, pos, new ItemStack(DoorwaysContent.painting(painted)));
         }
 
-        List<BlockPos> all = new ArrayList<>();
+        List<BlockPos> all = new ArrayList<>(width * height);
         for (BlockPos column : columns) {
-            all.add(column);
-            all.add(column.above());
+            for (int row = 0; row < height; row++) {
+                all.add(column.above(row));
+            }
         }
 
         inTransaction(true);

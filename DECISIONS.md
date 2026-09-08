@@ -4,7 +4,7 @@ The project started from a Portuguese specification document, kept outside this 
 This document records the **explicit later changes** that the spec itself anticipates, settles
 the decisions it left open, and is the source of truth wherever the two disagree.
 
-Status: **v0.6** · Last updated: 2026-09-03
+Status: **v0.7** · Last updated: 2026-09-04
 
 This is not a changelog. It records *why* each non-obvious choice was made — including the ones
 that were wrong first. If you are here to contribute, this file is worth more than the code.
@@ -409,6 +409,161 @@ the daemon itself runs on it. Removed.
 > was never verified against anything.
 
 Gradle stays on **9.5.1**, as Fabric recommends.
+
+---
+
+## D-40 — Height is an axis of the catalogue, and 2 keeps the property it always had
+
+Doors stand 2 or 3 blocks; gates will stand up to 5. A door of a given height is a **separate
+block**, exactly as a door of a given width is — not a property of one door. That is what keeps
+the state space honest: a five-row property on all 234 doors would multiply every one of them by
+five to serve the handful that are tall.
+
+### The compatibility problem, and the null in the table
+
+The obvious change was to replace the vanilla `half` (`lower`/`upper`) with a plain `row` index
+everywhere. It would have been tidier, and it would have **reset every door in every player's
+world**: a saved block state carries its properties by name, and a state written with
+`half=upper` loading into a block that no longer declares `half` takes the default — so every
+upper half in every world would have come back as a bottom row.
+
+So the row index is spelled two ways, and the table that decides is `ROWS`, indexed by height and
+**null at 2**:
+
+- at height 2 the door declares `half`, the property it has declared since the first version, and
+  reads it through `rowOf` as 0 or 1;
+- from 3 up it declares `row`, an integer whose range is exactly that height.
+
+Nothing else in the block knows which. Every rule reads `rowOf(state)` and writes `withRow(…)`,
+and the whole of `WideDoorBlock` went from "the column and the block above it" to "every row of
+the column" without any rule learning that there were two spellings. The blockstate generator is
+the one place that has to know, and it takes the property and a reader as arguments rather than
+branching six ways.
+
+### What the geometry did not have to learn
+
+`DoorLayout` says it plainly: *"Height is always 2 and never enters the maths."* That turned out
+to be exactly right. A door's geometry is horizontal — which column, which way it turns, what it
+sweeps through — and none of that changes when it grows a row. **The pure geometry module was not
+touched at all.** The height lives entirely in the block, which is where the world is.
+
+### Models do not multiply with height
+
+A row is one of three kinds — the one on the ground, the one at the head, and any in between —
+and every row between the first and the last is the same row. So a five-row gate needs no more
+models than a two-row door: `bottom`, `middle`, `top`. Textures follow the same rule, with a band
+of ironwork at both ends of every row so that wherever two rows meet there is iron on both sides
+of the joint.
+
+### The first tall doors: cobblestone and cobbled deepslate
+
+Two stones, widths 1 and 2, heights 2 and 3 — eight blocks. They stop at two columns because a
+leaf of cut stone four blocks across, turning on a hinge, is not a door anybody would believe.
+
+`BlockSetType.STONE` is vanilla's own and already answers every question: it opens by hand, it
+steps and breaks like stone, and it opens with the iron door's heavy sound, which is what a slab
+of masonry on a hinge should sound like. Nothing was invented for it. Its face is the vanilla
+cobblestone texture itself, for the reason every colour here is sampled (D-02) — a stone door in
+a stone wall has to be the same stone — with a dark jamb down both edges so that a shut one still
+reads as a door rather than as a patch of wall.
+
+The id carries the height only when it is not the usual two: `cobblestone_doorway_2` and
+`cobblestone_doorway_2x3`. Every id written before there were tall doors still names the block it
+always named.
+
+### The door is timber and the stone is the wall, which is the way round it was
+
+The stone doors were built the wrong way round first: a panel of masonry in a timber frame. The
+picture was wrong before the pixels were -- nobody hangs a slab of cobble on a hinge. They are
+now a leaf of boards, strapped twice in iron, set in a doorway of masonry, and the material names
+the doorway rather than the leaf, which is what a doorway is.
+
+The boards are weathered, and every kind of ageing is written as a **step darker or lighter in
+the sampled palette** rather than as a colour of its own -- which is what lets cobbled deepslate
+age by the same rules with nothing chosen by hand. Each board takes its tone from its own hash,
+some have had water running down them for years, the grain shows as flecks and the odd knot, and
+the foot of the door is darker where the damp comes up, dithered rather than banded. Age only
+ever goes downwards: a board that has aged is darker than one that has not, never lighter.
+Starting a step below the middle so that it could go both ways made every door read as derelict.
+
+### The arch is a row kind, and the masonry does not move
+
+A three-row stone door carries a round head. It needed no new blockstate -- the open and closed
+models were already separate files -- but it did need **geometry**, and the first attempt shipped
+without any.
+
+Painted on, it was convincing shut and wrong the moment it opened: the whole leaf turns, and a
+doorway painted on the leaf turns with it, leaving a square hole with a doorway drawn on the door
+standing beside it. The reasoning that talked me out of cutting it was that the corners of an
+arched opening are masonry rather than holes, so nothing had to be held still. True, and beside
+the point -- masonry that swings is not masonry.
+
+So every row of a stone door is now two groups of boxes in one model. The boards are the leaf and
+turn with the door. The stone -- the jamb down each side, the sill, the lintel, the ring over the
+head -- is written **turned the other way**, so that the rotation the blockstate applies to the
+whole model lands it back in the plane of the wall. The two cancel, and the door opens through
+masonry that stands still.
+
+That is why a stone row has **three** models where every other row has two. The two swings turn
+opposite ways, so each needs the stone written turned opposite ways, and which one a part takes
+is decided by the end its leaf pivots about rather than by the hinge -- on a door that opens from
+the middle each half pivots at a fixed end, and only one of the two ever occurs there.
+
+Two details were found by looking at it in game rather than by reasoning:
+
+- the leaf needs the face along its head, or a door standing open under an arch is a box you can
+  see into from above;
+- the stone keeps its underside only in the swung models. Shut, the two groups share that plane
+  exactly, and two faces in one place flicker.
+
+**The jambs are solid, and one pixel narrower than they look.** They are the only part of a door
+in this mod a player can walk into; everything else is leaf. They are drawn three pixels wide,
+because that is the thickness of the leaf and the swung models only line up when the two match --
+and solid to the same three, a one-column doorway measures ten pixels and a player is nine and a
+half. Passable, and it feels it. So the stone you touch stops a pixel short of the stone you see
+and the doorway opens to twelve. The lie lives on the outermost pixel of the outermost band, at
+the edge of the opening, where nothing can be stood on, aimed at or seen past.
+
+The shape is built as the **intersection** of the block's end slab with the plane the leaf hangs
+in, rather than written out as a box. That is not cleverness: it puts the jamb at the right depth
+without the code having to know which way round the shape table is indexed, and that convention
+cannot be checked except by standing in the doorway and walking at it.
+
+Three things were found only by opening the door and looking:
+
+- a leaf that is inset at one end only -- half of a two-column door -- turns about the block's
+  centre straight over its own jamb, and the hinge end flickers between stone and boards as you
+  move your head. The swung models slide the leaf along the wall until it comes to rest beside
+  the jamb instead of on top of it, keeping the pixels it was cut from;
+- a strip of stone left lying across the threshold when the door swings away reads as a bug
+  rather than as a sill, and the same strip overhead on a two-row door reads as a stray course.
+  Both are gone; what stays is the sides and the ring of the arch;
+- the leaf needs the face along its head, or a door standing open under an arch is a box you can
+  see into from above.
+
+The arc itself is one formula for both widths: a semicircle where the rise reaches half the span,
+and a segmental arch where it is capped -- the shallower form the same builders used over the
+same openings. A two-column door gets the segmental one, because a true semicircle over its
+26-pixel opening would spring from below the row it lives in.
+
+It belongs to the three-row doors alone, and that is what the fourth **row kind** is for. The two
+heights share their models otherwise, so arching "the top row" would have arched the two-row door
+as well -- and that is the one door a round head must not have: the crown leaves 1.5 blocks of
+clear height and a player is 1.8. A door you cannot walk through standing is not a door, however
+handsome. At three rows the crown clears two and a half.
+
+### A model nobody points at
+
+Adding the row kind wrote twelve models that no blockstate mentioned, and every check passed.
+That is the shape of a stale blockstate: the textures and models come from `gen_assets` and the
+blockstates from datagen, the two can be run apart, and nothing was comparing them in that
+direction -- so the doors in game would have kept their old flat heads with the whole safety net
+green.
+
+The rule now runs both ways: every model a blockstate points at must exist, and every model must
+be pointed at. It paid for itself immediately by turning up **48 models that had been shipping in
+every release for nothing** -- a saloon door exists only at the even widths, so the one-column
+role its textures were being generated for could never occur.
 
 ---
 
@@ -1020,6 +1175,39 @@ The loop over the 168 doors lives in `common`, behind a two-method interface
 reads them. They are inert on Fabric — a file in a namespace Fabric does not know is simply
 ignored — so the same `common` serves both loaders with no conditionals and no duplicated
 resources.
+
+### The one call `common` cannot spell to suit both
+
+`SlidingPanelsRenderer.collectParts` asks a blockstate's model for the pieces it is made of, so
+that a panel drawn by the renderer can carry its own breaking cracks. It is the single place
+where the two loaders disagree about the **API itself** rather than about timing, and there is no
+wording that satisfies both. Verified by compiling `common` against each in turn with
+`-Xlint:deprecation`:
+
+| | `BlockStateModel.collectParts(RandomSource, List)` |
+|---|---|
+| Fabric | compiles silently. Its injected `FabricBlockStateModel` adds `emitQuads`, `createGeometryKey`, `particleMaterial`, `materialFlags` -- and no `collectParts` of its own |
+| NeoForge | **deprecated**, in favour of a five-argument `collectParts(BlockAndTintGetter, BlockPos, BlockState, RandomSource, List)` on `BlockStateModelExtension`, which exists only there |
+
+There is no way round it by not calling it, either: every `submitBlockModel`,
+`submitBreakingBlockModel` and `submitMovingBlock` on `OrderedSubmitNodeCollector` takes the list
+of parts already built. Nothing accepts a model and collects them itself.
+
+So the choice is only **which of two complaints to carry**:
+
+- as it stands, the NeoForge build prints one deprecation warning and Fabric is clean;
+- with `@SuppressWarnings("deprecation")`, NeoForge is clean and an IDE resolving `common`
+  against Fabric reports the annotation as unnecessary.
+
+Both have been tried, and the warning is the one being kept. It is honest -- the call really is
+deprecated on that side -- and a reader who wonders why finds this table rather than an
+annotation that hides the question.
+
+The clean answer exists and was declined: put the call behind a small interface in `common` and
+implement it per loader, each using the spelling that is current on its own side. That would end
+the warning on both. It was turned down because it would make the loaders differ in **what** they
+do rather than only in *when*, which is the property this whole section is about, and one
+compiler warning is not worth spending it.
 
 ---
 

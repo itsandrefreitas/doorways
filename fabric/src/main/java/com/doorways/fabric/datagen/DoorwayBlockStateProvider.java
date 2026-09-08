@@ -9,6 +9,7 @@ import com.doorways.block.WideDoorGeometry;
 import com.doorways.core.geometry.DoorLayout;
 import com.doorways.core.geometry.Hinge;
 import com.mojang.math.Quadrant;
+import java.util.function.ToIntFunction;
 import net.fabricmc.fabric.api.client.datagen.v1.provider.FabricModelProvider;
 import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
 import net.minecraft.client.data.models.BlockModelGenerators;
@@ -27,6 +28,7 @@ import net.minecraft.world.level.block.state.properties.DoorHingeSide;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.level.block.state.properties.Property;
 
 /**
  * Generates the doors' 200 blockstates from the real geometry.
@@ -91,6 +93,18 @@ public class DoorwayBlockStateProvider extends FabricModelProvider {
      * <p>This branching is the visible cost of the saving, and it is paid once, here.
      */
     private static MultiVariantGenerator blockState(DoorVariant variant, WideDoorBlock door) {
+        // Two spellings of the same axis: the vanilla enum at the usual height, a number above
+        // it (see WideDoorBlock.ROWS). Passing the property and its reader into one generic
+        // body keeps this at three shapes rather than six.
+        IntegerProperty row = door.rowProperty();
+        return row == null
+                ? blockState(variant, door, WideDoorBlock.HALF,
+                        half -> half == DoubleBlockHalf.UPPER ? 1 : 0)
+                : blockState(variant, door, row, Integer::intValue);
+    }
+
+    private static <R extends Comparable<R>> MultiVariantGenerator blockState(
+            DoorVariant variant, WideDoorBlock door, Property<R> rows, ToIntFunction<R> rowOf) {
         IntegerProperty part = door.partProperty();
         EnumProperty<DoorHingeSide> hinge = door.hingeProperty();
 
@@ -98,36 +112,38 @@ public class DoorwayBlockStateProvider extends FabricModelProvider {
             return MultiVariantGenerator.dispatch(door).with(
                     PropertyDispatch.initial(
                                     WideDoorBlock.FACING,
-                                    WideDoorBlock.HALF,
+                                    rows,
                                     door.swingProperty(),
                                     part)
-                            .generate((facing, half, swing, column) -> variantFor(
-                                    variant, door, facing, half,
+                            .generate((facing, row, swing, column) -> variantFor(
+                                    variant, door, facing, rowOf.applyAsInt(row),
                                     DoorHingeSide.LEFT, swing, column)));
         }
         if (part == null) {
             return MultiVariantGenerator.dispatch(door).with(
                     PropertyDispatch.initial(
                                     WideDoorBlock.FACING,
-                                    WideDoorBlock.HALF,
+                                    rows,
                                     hinge,
                                     door.swingProperty())
-                            .generate((facing, half, side, swing) ->
-                                    variantFor(variant, door, facing, half, side, swing, 0)));
+                            .generate((facing, row, side, swing) -> variantFor(
+                                    variant, door, facing, rowOf.applyAsInt(row),
+                                    side, swing, 0)));
         }
         return MultiVariantGenerator.dispatch(door).with(
                 PropertyDispatch.initial(
                                 WideDoorBlock.FACING,
-                                WideDoorBlock.HALF,
+                                rows,
                                 hinge,
                                 door.swingProperty(),
                                 part)
-                        .generate((facing, half, side, swing, column) ->
-                                variantFor(variant, door, facing, half, side, swing, column)));
+                        .generate((facing, row, side, swing, column) -> variantFor(
+                                variant, door, facing, rowOf.applyAsInt(row),
+                                side, swing, column)));
     }
 
     private static MultiVariant variantFor(DoorVariant variant, WideDoorBlock door,
-                                           Direction facing, DoubleBlockHalf half,
+                                           Direction facing, int row,
                                            DoorHingeSide hinge, DoorSwing swing, int part) {
         // Built from the block's own mode and the style's motion rather than from the defaults,
         // so that a sliding door is described here exactly as the game describes it.
@@ -139,7 +155,7 @@ public class DoorwayBlockStateProvider extends FabricModelProvider {
                 variant.style().motion());
 
         MultiVariant model = BlockModelGenerators.plainVariant(
-                modelId(variant, layout, half, part, swing));
+                modelId(variant, layout, row, part, swing));
         Quadrant rotation = yRotation(WideDoorGeometry.leafDirection(
                 layout, part, WideDoorGeometry.toCore(swing)));
         return rotation == Quadrant.R0 ? model : model.with(VariantMutator.Y_ROT.withValue(rotation));
@@ -164,19 +180,22 @@ public class DoorwayBlockStateProvider extends FabricModelProvider {
      *
      * <p>Three rules. Only the end columns of the whole door carry a frame, and only on their
      * outer edges; the middle ones are smooth on both sides so leaves meet without a seam. The
-     * glass is only in the <b>upper</b> half -- the lower one uses the plain model of the same
+     * glass is only in the <b>top</b> row -- the one below uses the plain model of the same
      * material, so no {@code *_glass_doorway_bottom_*} file exists. And every door has a second
      * model for the swung states, whose texture is mirrored across the leaf -- the same reason
      * vanilla ships {@code door_bottom_left_open} alongside {@code door_bottom_left}.
+     *
+     * <p>Rows collapse into three kinds before they reach a file name, so the number of models
+     * does not grow with the height: every row between the first and the last is the same row.
      */
     private static Identifier modelId(DoorVariant variant, DoorLayout layout,
-                                      DoubleBlockHalf half, int column, DoorSwing swing) {
+                                      int row, int column, DoorSwing swing) {
         DoorStyle style = variant.style();
         String material = variant.material().name();
-        boolean upper = half == DoubleBlockHalf.UPPER;
+        String rowKind = style.rowKind(row, variant.height());
 
         if (style.slides()) {
-            return slidingModelId(style, material, layout, upper, column, swing);
+            return slidingModelId(style, material, layout, rowKind, column, swing);
         }
 
         int width = variant.width();
@@ -184,7 +203,8 @@ public class DoorwayBlockStateProvider extends FabricModelProvider {
                 : column == 0 ? "left"
                 : column == width - 1 ? "right"
                 : "mid";
-        return model(style.modelStem(material, upper, role, swing != DoorSwing.CLOSED));
+        return model(style.modelStem(material, rowKind, role, swing != DoorSwing.CLOSED,
+                layout.pivotAtLowEnd(column)));
     }
 
     /**
@@ -203,12 +223,12 @@ public class DoorwayBlockStateProvider extends FabricModelProvider {
      * what keeps it drawn past 64 blocks, which is as far as a renderer reaches.
      */
     private static Identifier slidingModelId(DoorStyle style, String material, DoorLayout layout,
-                                             boolean upper, int column, DoorSwing swing) {
+                                             String rowKind, int column, DoorSwing swing) {
         boolean parks = layout.parksHere(column);
         String track = swing == DoorSwing.CLOSED
                 ? (parks ? "front" : "back")
                 : (parks ? "stacked" : "hidden");
-        return model(style.modelStem(material, upper, track));
+        return model(style.modelStem(material, rowKind, track));
     }
 
     private static Identifier model(String stem) {

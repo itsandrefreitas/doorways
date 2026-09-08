@@ -15,7 +15,6 @@ import net.minecraft.world.level.block.WeatheringCopper;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockSetType;
-import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import com.doorways.core.geometry.DoorLayout;
 
 /**
@@ -70,7 +69,7 @@ public class WeatheringWideDoorBlock extends WideDoorBlock implements Weathering
 
     @Override
     protected void randomTick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        if (state.getValue(HALF) == DoubleBlockHalf.LOWER && partOf(state) == 0) {
+        if (rowOf(state) == 0 && partOf(state) == 0) {
             changeOverTime(state, level, pos, random);
         }
     }

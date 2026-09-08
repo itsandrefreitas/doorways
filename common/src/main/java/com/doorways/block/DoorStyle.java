@@ -56,7 +56,20 @@ public enum DoorStyle {
      * <p>Not a shoji with glass where the paper goes: a shoji is its lattice, and a glass door
      * that slides has no business carrying one. One door per width.
      */
-    SLIDING_GLASS("_sliding", false);
+    SLIDING_GLASS("_sliding", false),
+
+    /**
+     * Cut stone in a heavy frame, narrow and available <b>three blocks tall</b>.
+     *
+     * <p>The first style with a height of its own, and the reason the vertical axis exists. It
+     * stops at 2 columns on purpose: a leaf of cut stone four blocks across, turning on a hinge,
+     * is not a door anybody would believe.
+     *
+     * <p>No infix, because the material already says stone -- {@code cobblestone_doorway_1}
+     * reads better than {@code cobblestone_stone_doorway_1}, and no solid door is made of
+     * cobblestone, so nothing collides.
+     */
+    STONE("", true);
 
     private final String infix;
     private final boolean perMaterial;
@@ -125,6 +138,16 @@ public enum DoorStyle {
     }
 
     /**
+     * Whether this style stands in a doorway of its own masonry.
+     *
+     * <p>The jambs are drawn by the model and are <b>solid</b>: they are the one piece of a door
+     * in this mod that a player can walk into. Everything else about a door is the leaf.
+     */
+    public boolean jambed() {
+        return this == STONE;
+    }
+
+    /**
      * Whether a painting can be applied to this style.
      *
      * <p>Only the papered one. A fusuma's panel is the canvas of the room and has been painted
@@ -156,28 +179,86 @@ public enum DoorStyle {
         if (this == SALOON || slides()) {
             return width % 2 == 0;
         }
+        // Stone stops at two columns -- see the constant.
+        if (this == STONE) {
+            return width <= 2;
+        }
         return true;
     }
 
     /**
-     * The id stem: {@code oak_saloon_doorway_2}, {@code glass_doorway_1}.
+     * The heights this style comes in, shortest first.
      *
-     * <p>Styles that are not per-material drop the material from the name entirely -- the
-     * material of a glass door is glass, and repeating it reads badly.
+     * <p>Two is what every door was and what nearly every door still is. A style listing more
+     * than one height becomes that many separate blocks, exactly as a style listing more than
+     * one width does -- height is an axis of the catalogue, not a property of a door.
      */
-    public String name(String material, int width) {
-        return material + infix + "_doorway_" + width;
+    public int[] heights() {
+        return this == STONE
+                ? new int[] {WideDoorBlock.DEFAULT_HEIGHT, 3}
+                : new int[] {WideDoorBlock.DEFAULT_HEIGHT};
     }
 
     /**
-     * The model stem for one half of one column.
+     * The id stem: {@code oak_saloon_doorway_2}, {@code glass_doorway_1},
+     * {@code cobblestone_doorway_2x3}.
      *
-     * <p>{@link #GLAZED} is the exception: only its upper half differs from {@link #SOLID}, so
-     * the lower half reuses the solid model rather than duplicating it per material.
+     * <p>Styles that are not per-material drop the material from the name entirely -- the
+     * material of a glass door is glass, and repeating it reads badly.
+     *
+     * <p>The height appears only when it is not the usual two, so that every id written before
+     * there were gates still names the same block. {@code 2x3} is width by height, in that
+     * order, which is how a doorway is measured everywhere else.
      */
-    public String modelStem(String material, boolean upper, String role) {
-        String styled = this == GLAZED && !upper ? "" : infix;
-        return material + styled + "_doorway_" + (upper ? "top" : "bottom") + "_" + role;
+    public String name(String material, int width, int height) {
+        String size = height == WideDoorBlock.DEFAULT_HEIGHT
+                ? String.valueOf(width)
+                : width + "x" + height;
+        return material + infix + "_doorway_" + size;
+    }
+
+    /**
+     * The kind of row: the one on the ground, the one at the head, or any in between.
+     *
+     * <p>Three kinds however tall the door is -- four where the head is arched. A five-row gate
+     * has three middle rows and they are the same row three times: the model does not multiply
+     * with the height, which is what makes an arbitrary height affordable in files as well as in
+     * states.
+     */
+    public String rowKind(int row, int height) {
+        if (row == 0) {
+            return "bottom";
+        }
+        if (row < height - 1) {
+            return "middle";
+        }
+        return arched(height) ? "arch" : "top";
+    }
+
+    /**
+     * Whether this style's top row carries a semicircular head at this height.
+     *
+     * <p>Only where there is room to walk under one. A round head over a two-row door leaves
+     * 1.5 blocks of clear height at the crown and a player is 1.8 tall -- a door you cannot
+     * walk through standing is not a door, however handsome. At three rows the crown clears
+     * two and a half blocks (D-40).
+     *
+     * <p>It is a row <b>kind</b> and not a flag on the top row, because the two heights share
+     * their model otherwise: arching "the top row" would have arched the two-row door as well.
+     */
+    public boolean arched(int height) {
+        return this == STONE && height > WideDoorBlock.DEFAULT_HEIGHT;
+    }
+
+    /**
+     * The model stem for one row of one column.
+     *
+     * <p>{@link #GLAZED} is the exception: only its top row differs from {@link #SOLID}, so the
+     * one below reuses the solid model rather than duplicating it per material.
+     */
+    public String modelStem(String material, String rowKind, String role) {
+        String styled = this == GLAZED && !rowKind.equals("top") ? "" : infix;
+        return material + styled + "_doorway_" + rowKind + "_" + role;
     }
 
     /**
@@ -194,8 +275,31 @@ public enum DoorStyle {
      * centred and becomes a bar across the doorway, attached to nothing. Only the closed state
      * can afford to be centred.
      */
-    public String modelStem(String material, boolean upper, String role, boolean swung) {
-        String stem = modelStem(material, upper, role);
+    public String modelStem(String material, String rowKind, String role, boolean swung) {
+        String stem = modelStem(material, rowKind, role);
         return swung ? stem + "_open" : stem;
+    }
+
+    /**
+     * The same, for a row whose head is arched.
+     *
+     * <p>Every row of a stone door has <b>three</b> models where other rows have two, and none
+     * of them is another turned round. Its masonry -- the jambs, the sill, the lintel, the ring
+     * over an arched head -- has to end up in the plane of the wall whichever way the leaf went,
+     * so each swing needs the stone written turned the other way, and the two swings turn
+     * opposite ways. Which of the two a part takes is decided by the end its leaf pivots about,
+     * not by the hinge: on a door that opens from the middle each half pivots at a fixed end and
+     * only one of the two ever occurs.
+     */
+    public String modelStem(String material, String rowKind, String role, boolean swung,
+                            boolean pivotAtLowEnd) {
+        String stem = modelStem(material, rowKind, role);
+        if (!swung) {
+            return stem;
+        }
+        if (this != STONE) {
+            return stem + "_open";
+        }
+        return stem + (pivotAtLowEnd ? "_open_low" : "_open_high");
     }
 }

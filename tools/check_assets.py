@@ -77,6 +77,17 @@ for door in doors:
             referenced.add(variant["model"].rsplit("/", 1)[-1])
 report("models referenced by a blockstate", referenced - block_models)
 
+# And the other direction: a model nobody points at.
+#
+# This is what catches a stale blockstate. The textures and models come from gen_assets and the
+# blockstates from datagen, and nothing forces the two to be run together -- so adding a row kind
+# writes twelve new models that no variant mentions, and every other rule here stays green while
+# the doors in game quietly keep their old heads. It also catches the opposite mistake, a role
+# generated for a width the style does not have, which happened the day stone got a "mid" model
+# it could never reach.
+report("block models", block_models - referenced,
+       "generated but no blockstate points at them -- run gradlew :fabric:runDatagen")
+
 wanted = set()
 for model in block_models:
     with io.open(os.path.join(ASSETS, "models", "block", model + ".json"), encoding="utf-8") as f:

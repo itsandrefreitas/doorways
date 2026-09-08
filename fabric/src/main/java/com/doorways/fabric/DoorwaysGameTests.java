@@ -95,4 +95,9 @@ public class DoorwaysGameTests {
     public void paintingSurvivesTheDoorOpening(GameTestHelper helper) {
         DoorwayScenarios.paintingSurvivesTheDoorOpening(helper);
     }
+
+    @GameTest(maxTicks = TICKS)
+    public void tallDoorStandsAndBreaksAsOne(GameTestHelper helper) {
+        DoorwayScenarios.tallDoorStandsAndBreaksAsOne(helper);
+    }
 }

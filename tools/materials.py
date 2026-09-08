@@ -58,27 +58,43 @@ COPPER = _copper()
 GLASS = ("glass", "Glass", "glass", "minecraft:glass")
 BOOKSHELF = ("bookshelf", "Bookshelf", "bookshelf", "minecraft:bookshelf")
 
-MATERIALS = WOODS + [IRON] + COPPER + [GLASS, BOOKSHELF]
+# Cut stone, in the two tones the game already has: ordinary cobblestone and the same thing
+# made of deepslate, which is the darker one.
+STONES = [
+    ("cobblestone", "Cobblestone", "cobblestone", "minecraft:cobblestone"),
+    ("cobbled_deepslate", "Cobbled Deepslate", "cobbled_deepslate", "minecraft:cobbled_deepslate"),
+]
+
+MATERIALS = WOODS + [IRON] + COPPER + [GLASS, BOOKSHELF] + STONES
 
 # Which ids belong to a pickaxe rather than an axe. A bookshelf door is wood with books in it.
 IRON_ID = IRON[0]
 GLASS_ID = GLASS[0]
 COPPER_IDS = {name for name, _, _, _ in COPPER}
+STONE_IDS = {name for name, _, _, _ in STONES}
 
-# style -> (materials, widths). Mirrors DoorStyle.materialsFor and DoorStyle.allowsWidth.
+# style -> (materials, widths, heights). Mirrors DoorStyle.materialsFor, DoorStyle.allowsWidth
+# and DoorStyle.heights.
+#
+# Height is an axis of the catalogue exactly as width is: each one is a separate block, not a
+# property of a door. Nearly everything is two rows tall, which is what every door was before
+# there were tall ones.
 STYLES = {
-    "solid":      (WOODS + [IRON] + COPPER, (1, 2, 3, 4)),
-    "glazed":     (WOODS + [IRON] + COPPER, (1, 2, 3, 4)),
-    "full_glass": ([GLASS], (1, 2, 3, 4)),
+    "solid":      (WOODS + [IRON] + COPPER, (1, 2, 3, 4), (2,)),
+    "glazed":     (WOODS + [IRON] + COPPER, (1, 2, 3, 4), (2,)),
+    "full_glass": ([GLASS], (1, 2, 3, 4), (2,)),
     # A saloon door is two swinging leaves, so it only exists at the even widths. No iron and
     # no copper: it is a wooden thing.
-    "saloon":     (WOODS, (2, 4)),
-    "bookshelf":  ([BOOKSHELF], (1, 2, 3, 4)),
+    "saloon":     (WOODS, (2, 4), (2,)),
+    "bookshelf":  ([BOOKSHELF], (1, 2, 3, 4), (2,)),
     # A sliding leaf is always two panels, one hiding behind the other, so two columns make one
     # leaf and four make two. Nothing else divides evenly. No iron either: a fusuma runs in
     # wooden grooves and has neither hinge nor metal track.
-    "fusuma":      (WOODS, (2, 4)),
-    "sliding_glass": ([GLASS], (2, 4)),
+    "fusuma":      (WOODS, (2, 4), (2,)),
+    "sliding_glass": ([GLASS], (2, 4), (2,)),
+    # The first style with a height of its own, and narrow on purpose: a leaf of cut stone four
+    # columns wide, turning on a hinge, is not a door anybody would believe.
+    "stone":      (STONES, (1, 2), (2, 3)),
 }
 
 STYLE_INFIX = {
@@ -89,6 +105,9 @@ STYLE_INFIX = {
     "bookshelf": "",
     "fusuma": "_fusuma",
     "sliding_glass": "_sliding",
+    # No infix: the material already says stone, and no solid door is made of cobblestone, so
+    # cobblestone_doorway_1 collides with nothing.
+    "stone": "",
 }
 
 STYLE_LABEL = {
@@ -99,6 +118,7 @@ STYLE_LABEL = {
     "bookshelf": "",
     "fusuma": " Fusuma",
     "sliding_glass": " Sliding",
+    "stone": "",
 }
 
 # The styles whose panels slide behind each other instead of turning. Mirrors DoorStyle.slides().
@@ -106,17 +126,72 @@ SLIDING = ("fusuma", "sliding_glass")
 
 WIDTH_SUFFIX = {1: "", 2: " ×2", 3: " ×3", 4: " ×4"}
 
+# The height every door was, and still is unless its style says otherwise.
+DEFAULT_HEIGHT = 2
 
-def block_name(material, width, style):
-    """State prefixes go in front, as in vanilla: waxed_exposed_copper_doorway_2."""
-    return f"{material}{STYLE_INFIX[style]}_doorway_{width}"
+# What a door taller than usual is called. Mirrors nothing in the code -- it is only a label.
+HEIGHT_PREFIX = {2: "", 3: "Tall ", 4: "Tall ", 5: "Tall "}
+
+
+# The styles whose head is a round arch, at any height that has room for one. Mirrors
+# DoorStyle.arched.
+ARCHED = ("stone",)
+
+
+def row_kinds(style, heights):
+    """The kinds of row a style needs textures for.
+
+    Three at most, however tall the door: the one on the ground, the one at the head, and any in
+    between. A five-row gate has three middle rows and they are the same row three times, which
+    is what keeps the number of files from growing with the height.
+
+    An arched style needs a fourth, because the two heights would otherwise share the same top
+    row -- and a round head belongs only to the taller one, which is the only one you can walk
+    under.
+    """
+    kinds = ["bottom", "top"]
+    if max(heights) > DEFAULT_HEIGHT:
+        kinds.insert(1, "middle")
+        if style in ARCHED:
+            kinds.append("arch")
+    return kinds
+
+
+def roles(widths):
+    """The column roles a style's widths actually call for.
+
+    A door one column wide is a "single"; wider ones have an end at each side and, from three
+    columns up, a smooth "mid" in between. Generating the roles a style can never reach would
+    leave textures nothing points at, which the asset checker is right to refuse.
+    """
+    out = []
+    if 1 in widths:
+        out.append("single")
+    if max(widths) >= 2:
+        out += ["left", "right"]
+    if max(widths) >= 3:
+        out.append("mid")
+    return out
+
+
+def block_name(material, width, style, height=DEFAULT_HEIGHT):
+    """State prefixes go in front, as in vanilla: waxed_exposed_copper_doorway_2.
+
+    The height appears only when it is not the usual two, so every id written before there were
+    tall doors still names the same block. `2x3` is width by height, in that order.
+    """
+    size = f"{width}" if height == DEFAULT_HEIGHT else f"{width}x{height}"
+    return f"{material}{STYLE_INFIX[style]}_doorway_{size}"
 
 
 def model_stem(material, style, half, role, swung=False):
-    """The model and texture stem for one half of one column.
+    """The model and texture stem for one row of one column.
 
-    Glazed doors are the exception: only the upper half differs from a solid door, so the lower
-    half reuses the solid texture instead of duplicating it per material.
+    `half` is a row kind -- "bottom", "middle" or "top" -- and not a half any more; the name is
+    kept because it is the same slot in every stem the mod has ever written.
+
+    Glazed doors are the exception: only the top row differs from a solid door, so the one below
+    reuses the solid texture instead of duplicating it per material.
 
     Every door needs two models per stem, the way vanilla does: opening turns the leaf the other
     way about its hinge, which reverses the texture across it. The plain stem is the closed one
@@ -129,8 +204,7 @@ def model_stem(material, style, half, role, swung=False):
     DoorStyle.modelStem mirrors this, and the two must agree or a blockstate ends up pointing at
     a model nobody wrote.
     """
-    upper = half == "top"
-    infix = "" if (style == "glazed" and not upper) else STYLE_INFIX[style]
+    infix = "" if (style == "glazed" and half != "top") else STYLE_INFIX[style]
     stem = f"{material}{infix}_doorway_{half}_{role}"
 
     # A sliding door has no swung model. Its panels never turn, so there is no texture to
@@ -141,8 +215,9 @@ def model_stem(material, style, half, role, swung=False):
     return stem + "_open" if swung else stem
 
 
-def display_name(label, width, style):
-    return f"{label}{STYLE_LABEL[style]} Doorway{WIDTH_SUFFIX[width]}"
+def display_name(label, width, style, height=DEFAULT_HEIGHT):
+    return (f"{HEIGHT_PREFIX[height]}{label}{STYLE_LABEL[style]}"
+            f" Doorway{WIDTH_SUFFIX[width]}")
 
 
 def waxable_pairs():
