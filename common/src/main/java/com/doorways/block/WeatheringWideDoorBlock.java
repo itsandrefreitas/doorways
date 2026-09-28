@@ -1,9 +1,7 @@
 package com.doorways.block;
 
+import com.doorways.compat.Vanilla;
 import com.doorways.core.geometry.DoorMode;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -15,7 +13,6 @@ import net.minecraft.world.level.block.WeatheringCopper;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockSetType;
-import com.doorways.core.geometry.DoorLayout;
 
 /**
  * A copper door that oxidises over time.
@@ -32,22 +29,6 @@ public class WeatheringWideDoorBlock extends WideDoorBlock implements Weathering
     /** The same constant as vanilla ChangeOverTimeBlock: each block once per day. */
     private static final float ONCE_PER_DAY_CHANCE = 0.05688889F;
 
-    public static final MapCodec<WeatheringWideDoorBlock> CODEC = RecordCodecBuilder.mapCodec(
-        i -> i.group(
-                Codec.intRange(DoorLayout.MIN_WIDTH, DoorLayout.MAX_WIDTH)
-                        .fieldOf("width").forGetter(WideDoorBlock::width),
-                Codec.STRING.xmap(DoorMode::valueOf, DoorMode::name)
-                        .fieldOf("mode").forGetter(WideDoorBlock::mode),
-                Codec.STRING.xmap(DoorStyle::valueOf, DoorStyle::name)
-                        .fieldOf("style").forGetter(WideDoorBlock::style),
-                BlockSetType.CODEC.fieldOf("block_set_type").forGetter(WideDoorBlock::type),
-                WeatherState.CODEC
-                        .fieldOf("weathering_state").forGetter(WeatheringWideDoorBlock::getAge),
-                propertiesCodec())
-            .apply(i, (width, mode, style, type, weathering, properties) ->
-                    sized(width, mode, () -> new WeatheringWideDoorBlock(
-                            width, mode, style, type, weathering, properties))));
-
     private final WeatherState weatherState;
 
     public WeatheringWideDoorBlock(int width, DoorMode mode, DoorStyle style, BlockSetType type,
@@ -55,11 +36,6 @@ public class WeatheringWideDoorBlock extends WideDoorBlock implements Weathering
                                    BlockBehaviour.Properties properties) {
         super(width, mode, style, type, properties);
         this.weatherState = weatherState;
-    }
-
-    @Override
-    protected MapCodec<? extends WideDoorBlock> codec() {
-        return CODEC;
     }
 
     @Override
@@ -103,8 +79,9 @@ public class WeatheringWideDoorBlock extends WideDoorBlock implements Weathering
         int sameAge = 0;
         int older = 0;
 
-        for (BlockPos neighbour : BlockPos.withinManhattan(pos, SCAN_DISTANCE, SCAN_DISTANCE,
-                SCAN_DISTANCE)) {
+        for (BlockPos neighbour : Vanilla.withinManhattan(pos, SCAN_DISTANCE)) {
+            // Load-bearing on 26.2, where the walk is a box around the octahedron rather than
+            // the octahedron itself. Harmless on 26.3, which yields only what this admits.
             if (neighbour.distManhattan(pos) > SCAN_DISTANCE) {
                 break;
             }

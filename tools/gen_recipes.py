@@ -24,13 +24,13 @@ import zipfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from materials import BOOKSHELF, COPPER, GLASS, IRON, STONES, WOODS
 from palettes import read_png
+from targets import client_jar
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
 MOD_ITEMS = os.path.join(ROOT, "common", "src", "main", "resources", "assets", "doorways",
                          "textures", "item")
 OUT = os.path.join(ROOT, "Screenshots")
-CLIENT_JAR = os.path.expanduser(
-    "~/.gradle/caches/neoformruntime/artifacts/minecraft_26.2_client.jar")
+CLIENT_JAR = client_jar(ROOT)
 
 SCALE = 3
 SLOT = 18           # a 16-pixel sprite with a pixel of border each side

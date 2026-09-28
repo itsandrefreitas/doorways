@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:block",
+  "random_sequence": "doorways:blocks/pale_oak_glass_doorway_2",
+  "pools": [
+    {
+      "rolls": 1,
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "doorways:pale_oak_glass_doorway_2",
+          "condition": {
+            "type": "minecraft:match_block",
+            "blocks": "doorways:pale_oak_glass_doorway_2",
+            "state": {
+              "half": "lower",
+              "part": "0"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -2,7 +2,7 @@
   "type": "minecraft:crafting_shaped",
   "category": "building",
   "key": {
-    "L": "minecraft:crimson_stem",
+    "L": "minecraft:crimson_planks",
     "H": "doorways:iron_hinge"
   },
   "pattern": [

@@ -2,7 +2,7 @@
   "type": "minecraft:crafting_shaped",
   "category": "building",
   "key": {
-    "L": "minecraft:mangrove_log",
+    "L": "minecraft:mangrove_planks",
     "H": "doorways:iron_hinge"
   },
   "pattern": [

@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:block",
+  "random_sequence": "doorways:blocks/bookshelf_doorway_1",
+  "pools": [
+    {
+      "rolls": 1,
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "doorways:bookshelf_doorway_1",
+          "condition": {
+            "type": "minecraft:match_block",
+            "blocks": "doorways:bookshelf_doorway_1",
+            "state": {
+              "half": "lower"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

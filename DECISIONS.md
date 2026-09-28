@@ -4,7 +4,7 @@ The project started from a Portuguese specification document, kept outside this 
 This document records the **explicit later changes** that the spec itself anticipates, settles
 the decisions it left open, and is the source of truth wherever the two disagree.
 
-Status: **v0.7** · Last updated: 2026-09-04
+Status: **v0.8** · Last updated: 2026-09-28
 
 This is not a changelog. It records *why* each non-obvious choice was made — including the ones
 that were wrong first. If you are here to contribute, this file is worth more than the code.
@@ -15,15 +15,18 @@ that were wrong first. If you are here to contribute, this file is worth more th
 
 | Item | Value |
 |---|---|
-| Minecraft | **26.2** (Java Edition, *Chaos Cubed*, 2026-06-16) |
-| Java | **25** (minimum required by 26.2) |
+| Minecraft | **26.2** (Java Edition, *Chaos Cubed*, 2026-06-16) **and 26.3** — see D-41 |
+| Java | **25** (the minimum required by both) |
 | Loaders | **Fabric** and **NeoForge** |
 | Mappings | **None** — see below |
-| Fabric Loom | `net.fabricmc.fabric-loom` 1.17-SNAPSHOT (resolves to 1.17.20) · Gradle 9.5.1 |
-| Fabric Loader | 0.19.3 · Fabric API 0.158.0+26.2 |
-| NeoForge | 26.2.0.70 · ModDevGradle 2.0.144 |
+| Fabric Loom | `net.fabricmc.fabric-loom` 1.17-SNAPSHOT (resolves to 1.17.20) · Gradle 9.8.0 |
+| Fabric Loader | 0.19.3 on 26.2, 0.19.5 on 26.3 |
+| Fabric API | 0.158.0+26.2 · 0.161.0+26.3 |
+| NeoForge | 26.2.0.70 · 26.3.0.31-beta · ModDevGradle 2.0.147 |
 
-§1 said only "Fabric". This becomes **multi-loader**.
+§1 said only "Fabric". This becomes **multi-loader**, and since D-41 multi-version as well. The
+live values are in `versions/<version>.properties`; this table is the record of what was
+verified, and against what.
 
 ### Minecraft is no longer obfuscated
 
@@ -408,7 +411,184 @@ the daemon itself runs on it. Removed.
 > It was in a plugin I had added myself, on plausibility, when setting the project up, and which
 > was never verified against anything.
 
-Gradle stays on **9.5.1**, as Fabric recommends.
+Gradle stayed on **9.5.1** until 26.3, which needs 9.6 or newer; it is now **9.8.0** (D-41).
+The rule is unchanged: whatever Fabric recommends, via the wrapper.
+
+---
+
+## D-44 — A wooden door is built from planks, not logs
+
+The solid door took six **logs**. It now takes six **planks**, in all twelve woods.
+
+The cost, since this is a balance change and not a rename:
+
+| | logs | planks |
+|---|---|---|
+| A 1-wide door | 1.5 logs = 6 planks | 1.5 planks |
+| A 4-wide door, which costs exactly one batch | 6 logs + a hinge | 6 planks + a hinge |
+
+So a door four blocks across is now six planks and a hinge, and a 1-wide one is cheaper in wood
+than the vanilla door it is the same size as — 1.5 planks against 2 — with a quarter of a hinge,
+which is a quarter of an ingot and a quarter of a nugget, on top. That is the intended trade: the
+iron is what a Doorways door costs, and the wood is what any door costs.
+
+Planks are also what a door has been made of in vanilla since there were doors, and they end an
+oddity in the material table: bamboo has no log, so it named `bamboo_block`, and the two nether
+woods named a stem.
+
+**It made `body_ingredient` collapse.** Saloon and fusuma named their own planks precisely
+because they were the exception to a solid door made of logs; with every wooden body in planks
+they were spelling out what the material already said, and two spellings of one fact can only
+drift. The one real exception is left: the sliding glass door's frame is wood while its material
+is glass, so it takes any planks rather than one of the twelve picked arbitrarily.
+
+Regenerating changed **12 recipe files** — one per wood, the 1-wide solid door — and nothing
+else, which is the proof that the collapse was a no-op and that the wider doors really are built
+from narrower ones rather than from the material.
+
+---
+
+## D-41 — Two Minecraft versions, one branch, and what would end that
+
+26.3 arrived while 26.2 was still what most people play, so the mod supports both. The question
+was not how to port it — that took three expressions — but how to **keep** both, and the answer
+has to survive 26.4, which is already in snapshot.
+
+### What was actually different
+
+Measured, not estimated. Against the NeoForged 26.2 → 26.3 primer, the Fabric release notes, and
+a file-by-file diff of vanilla's own data between the two versions:
+
+| | |
+|---|---|
+| `Block#codec` | **removed**, with the block type registry it served — see D-43 |
+| `PushReaction.DESTROY` | renamed `POPPED` |
+| `submitBreakingBlockModel` | takes a trailing `boolean` for whether the block is see-through |
+| `PoseStack.mulPose(Quaternionfc)` | renamed `rotate`, with a `rotateDegrees(Axis, float)` beside it |
+| `BlockPos.withinManhattan(pos, x, y, z)` | now `(pos, distance)` — the octahedron, not the box around it |
+| Loot tables | rebuilt — see D-42 |
+| Blockstates, block models, item definitions, recipes, tags | **byte-identical** |
+| Fabric's `OxidizableBlocksRegistry` | byte-identical between the two branches |
+| NeoForge's `oxidizables` / `waxables` data maps, `DataMapHooks` | unchanged |
+| `submitMovingBlock`, `BlockEntityRenderer#extractRenderState` | unchanged |
+
+So the whole of the copper, painting, sliding, saloon and stone work carries over untouched, and
+four expressions of Java do not.
+
+**The last two were not in the primer.** They were found by compiling against 26.3, which is
+possible offline because the game is no longer obfuscated: the client jar NFRT downloads holds
+real class names, so `javac -cp` against it answers what a migration document only summarises.
+Everything in the table above was then confirmed with `javap` on the jars of both versions rather
+than read off a page. That is the check to repeat on 26.4, before writing any code.
+
+### The toolchain has to move too
+
+26.3 needs Gradle **9.6 or newer**, and ModDevGradle **2.0.144 could not build it at all**: its
+bundled NeoForm Runtime was 2.0.24 against a current 2.0.31, and the run died in `recompile` —
+the step where NFRT compiles the patched Minecraft sources — having got cleanly through
+decompile, patch and transform. Nothing in the mod was involved. 2.0.147 carries a current NFRT.
+
+The tell is worth remembering, because the Gradle error says only that a java.exe exited 1:
+`~/.gradle/caches/neoformruntime/intermediate_results/` holds one file per completed step, with
+timestamps. The first step with no file for the version being built is the one that failed.
+
+### Why not a branch per version
+
+That is the common answer and it was declined, for a reason that has nothing to do with the
+Java. This repository commits **3,024 generated files**. Every feature rewrites hundreds of
+them, so every feature would have to be regenerated and cherry-picked on each branch — and
+`check_assets.py`, which is the only thing standing between a generator mistake and a door that
+silently drops nothing, can only ever see the branch it is standing on.
+
+One branch turns that around: a single run of the checker verifies **every version at once**.
+This project is built on mechanical verification rather than discipline, and that is the whole
+argument.
+
+### Why not a preprocessor, yet
+
+[Stonecutter](https://plugins.gradle.org/plugin/dev.kikugie.stonecutter) is the tool the
+ecosystem uses for exactly this, it is alive (0.9.8, August 2026), and it handles the one thing
+this arrangement cannot. It was not adopted because it is Loom-oriented, and this build is
+Loom **and** ModDevGradle — adopting it means either making the two cooperate or moving NeoForge
+onto Architectury Loom, on a build that has already lost days to foojay (D-30) and to the NFRT
+toolchain. The structure below is what Stonecutter formalises, so nothing here is wasted when
+the day comes.
+
+**The trigger to move is written down so it is not a judgement call later:** the first
+difference that cannot be given a name — a method that has to stop overriding something, a class
+that has to implement a different interface, an import that exists on one side only — or the
+third supported version, whichever comes first.
+
+### The shape
+
+| | |
+|---|---|
+| `minecraft_targets` in `gradle.properties` | the list, newest first; the default is the first |
+| `versions/<version>.properties` | every version number that differs |
+| `common/src/main/java-<version>/…/Vanilla.java` | the expressions vanilla renamed |
+| `common/src/main/resources-<version>/` | the loot tables |
+
+`-Pmc=26.2` picks a version; without it the newest is built. **No other file in the build holds
+a version number**, and the generators read the same `minecraft_targets` line, so a version
+added to the build is a version they write for.
+
+`Vanilla.java` is deliberately a measure: two constants today, and the size of that file is the
+honest reading of how far the versions have drifted.
+
+The jars carry the game version in the **file name** (`doorways-fabric-26.3-0.6.0.jar`) and not
+in the mod version, so that two files of one release can be told apart on a store page without
+opening them, while the mod version stays a plain number.
+
+---
+
+## D-42 — The loot tables are the one thing 26.3 breaks, and it breaks them silently
+
+26.3 rebuilt loot conditions as registry entries. For a table like ours that means three
+changes, all of them in the same file, none of them loud:
+
+| 26.2 | 26.3 |
+|---|---|
+| `"conditions": [ … ]` | `"condition": { … }` — one, not a list |
+| `"condition": "minecraft:block_state_property"` | `"type": "minecraft:match_block"` |
+| `"block"` + `"properties"` | `"blocks"` + `"state"` |
+| `"rolls": 1.0` | `"rolls": 1` — number providers split into int and float |
+
+`block_state_property` is **gone from the registry**, not renamed in place: it does not appear in
+26.3's `loot_condition_type` at all. A table the game cannot parse is refused, and a door with
+no usable table drops nothing — which is precisely the failure of D-38, where forty-four doors
+dropped nothing because a table named a property its door did not declare.
+
+So: both shapes are generated on **every** run, into each version's own resources root, and
+`check_assets.py` reads them back in both spellings. It refuses a door missing a table on any
+version, and refuses a table written in another version's format — the second check exists
+because the first would not catch a tree regenerated with the wrong flag. Both failures were
+staged and confirmed to fail the checker before this was written down.
+
+Everything else the mod ships was compared against vanilla's own files between the two versions
+and is byte-identical, including the recipes, which were expected to move and did not.
+
+---
+
+## D-43 — The block codecs are gone, from both versions
+
+26.3 removed `Block#codec` and the block type registry behind it — the primer calls it "the
+death of the unused block types". The mod had four of them: `WideDoorBlock` and its three
+subclasses, about ninety lines.
+
+They were deleted from the **shared** source, not hidden behind the version seam, because
+`javap` on the 26.2 client jar settles it: `Block.codec()` is not abstract there. It has a body
+returning `Block.CODEC`. Implementing it was always optional, and nothing in the game ever
+serialised a door through it.
+
+Two things fell out with them, which is the tell that they were never load-bearing:
+
+- the `sized(width, mode, factory)` overload, whose only callers were those codecs. It defaulted
+  the height, so a door read back through a codec would have come out two rows tall whatever it
+  said — the codecs had been wrong since D-40 and nothing noticed;
+- `WideDoorBlock.type()`, an accessor no other caller had.
+
+`DoorVariant` is now the only path a door can be built by, which is what `sized`'s ThreadLocal
+guard always claimed.
 
 ---
 

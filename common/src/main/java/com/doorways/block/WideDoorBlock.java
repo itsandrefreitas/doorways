@@ -1,12 +1,10 @@
 package com.doorways.block;
 
+import com.doorways.compat.Vanilla;
 import com.doorways.core.geometry.DoorLayout;
 import com.doorways.core.geometry.DoorMode;
 import com.doorways.core.geometry.Hinge;
 import com.doorways.core.geometry.Swing;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +42,6 @@ import net.minecraft.world.level.block.state.properties.DoorHingeSide;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
-import net.minecraft.world.level.material.PushReaction;
 import net.minecraft.world.level.redstone.Orientation;
 import net.minecraft.world.level.pathfinder.PathComputationType;
 import net.minecraft.world.phys.BlockHitResult;
@@ -66,31 +63,6 @@ import org.jspecify.annotations.Nullable;
  * {@code PART}, {@code FACING}, {@code HINGE} and {@code SWING} (§3).
  */
 public class WideDoorBlock extends Block implements EntityBlock {
-
-    public static final MapCodec<WideDoorBlock> CODEC = RecordCodecBuilder.mapCodec(
-        i -> i.group(
-                Codec.intRange(DoorLayout.MIN_WIDTH, DoorLayout.MAX_WIDTH)
-                        .fieldOf("width")
-                        .forGetter(b -> b.width),
-                // Optional, and defaulting to what every door was before gates existed, so that
-                // the codec still reads a door written without one. Qualified because the
-                // constants are declared further down and a simple name cannot reach forwards.
-                Codec.intRange(WideDoorBlock.DEFAULT_HEIGHT, WideDoorBlock.MAX_HEIGHT)
-                        .optionalFieldOf("height", WideDoorBlock.DEFAULT_HEIGHT)
-                        .forGetter(b -> b.height),
-                Codec.STRING
-                        .xmap(DoorMode::valueOf, DoorMode::name)
-                        .fieldOf("mode")
-                        .forGetter(b -> b.mode),
-                Codec.STRING
-                        .xmap(DoorStyle::valueOf, DoorStyle::name)
-                        .fieldOf("style")
-                        .forGetter(b -> b.style),
-                BlockSetType.CODEC.fieldOf("block_set_type").forGetter(b -> b.type),
-                propertiesCodec())
-            .apply(i, (width, height, mode, style, type, properties) ->
-                    sized(width, height, mode, () ->
-                            new WideDoorBlock(width, height, mode, style, type, properties))));
 
     public static final EnumProperty<Direction> FACING = HorizontalDirectionalBlock.FACING;
     public static final EnumProperty<DoubleBlockHalf> HALF = BlockStateProperties.DOUBLE_BLOCK_HALF;
@@ -204,11 +176,6 @@ public class WideDoorBlock extends Block implements EntityBlock {
      * <p>Every door comes through here. Nothing else may call {@code new} on this class or any
      * of its subclasses.
      */
-    public static <T extends Block> T sized(int width, DoorMode mode, Supplier<T> factory) {
-        return sized(width, DEFAULT_HEIGHT, mode, factory);
-    }
-
-    /** The same, for a door taller than the two blocks every door used to be. */
     public static <T extends Block> T sized(int width, int height, DoorMode mode,
                                             Supplier<T> factory) {
         if (height < DEFAULT_HEIGHT || height > MAX_HEIGHT) {
@@ -318,16 +285,11 @@ public class WideDoorBlock extends Block implements EntityBlock {
     }
 
     @Override
-    protected MapCodec<? extends WideDoorBlock> codec() {
-        return CODEC;
-    }
-
-    @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         Shape building = BUILDING.get();
         if (building == null) {
             throw new IllegalStateException(
-                    "a door must be built through WideDoorBlock.sized(width, mode, ...)");
+                    "a door must be built through WideDoorBlock.sized(width, height, mode, ...)");
         }
         builder.add(FACING, swingProperty());
         // The vertical index, in whichever of its two spellings this height uses (see ROWS).
@@ -367,10 +329,6 @@ public class WideDoorBlock extends Block implements EntityBlock {
 
     public DoorStyle style() {
         return style;
-    }
-
-    public BlockSetType type() {
-        return type;
     }
 
     /**
@@ -1336,12 +1294,12 @@ public class WideDoorBlock extends Block implements EntityBlock {
             return true;
         }
         // Machinery is never broken. Pressure plates, levers, buttons, dust and repeaters are
-        // all PushReaction.DESTROY, so the rule below would otherwise let the leaf destroy the
+        // all popped by a piston, so the rule below would otherwise let the leaf destroy the
         // very plate that opened the door. They block the swing like a solid block.
         if (state.isSignalSource()) {
             return false;
         }
-        return state.getPistonPushReaction() == PushReaction.DESTROY
+        return state.getPistonPushReaction() == Vanilla.POPPED
                 && state.getFluidState().isEmpty();
     }
 

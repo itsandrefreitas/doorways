@@ -10,16 +10,17 @@ The order of a release is in the checklist at the bottom.
 
 ## GitHub — repository description
 
-> Articulated doors 1 to 4 blocks wide and 2 or 3 blocks tall for Minecraft 26.2 — 234 of them,
-> swinging, spring-hinged or sliding, and the sliding ones can be painted. Fabric and NeoForge.
+> Articulated doors 1 to 4 blocks wide and 2 or 3 blocks tall for Minecraft 26.2 and 26.3 — 234
+> of them, swinging, spring-hinged or sliding, and the sliding ones can be painted. Fabric and
+> NeoForge.
 
 ---
 
 ## Modrinth and CurseForge — summary
 
-> Wide articulated doors for Minecraft 26.2 — 1 to 4 blocks wide, 2 or 3 tall. 234 doors in eight
-> styles, nine paintings for the sliding ones, and stone doorways with round heads. Fabric and
-> NeoForge.
+> Wide articulated doors for Minecraft 26.2 and 26.3 — 1 to 4 blocks wide, 2 or 3 tall. 234 doors
+> in eight styles, nine paintings for the sliding ones, and stone doorways with round heads.
+> Fabric and NeoForge.
 
 ---
 
@@ -139,11 +140,14 @@ Everything hinged starts from an **Iron Hinge**: two iron ingots and two nuggets
 laid diagonally, for two hinges.
 
 A one-wide door is six of the material plus a hinge, and it makes four. Wider
-doors are built from narrower ones, so a four-wide door costs exactly one batch.
-Glazed doors are a solid door plus glass.
+doors are built from narrower ones, so a four-wide door costs exactly one batch —
+six planks and a hinge for a door four blocks across. Glazed doors are a solid
+door plus glass.
 
-Saloon doors use planks rather than logs, and take **two iron nuggets** for the
-springs — one above the hinge and one below. They only come two and four wide.
+Wooden doors take **planks**, the same as a vanilla door, in every style.
+
+Saloon doors add **two iron nuggets** for the springs — one above the hinge and
+one below. They only come two and four wide.
 
 Sliding doors run in a **Sliding Track** instead: two planks and a stick make
 four tracks. Two tracks, two paper and two planks give two fusuma; swap the paper
@@ -167,8 +171,12 @@ Paintings are two paper and one thing that names the motif, in any arrangement.
 
 ## Requirements
 
-Minecraft 26.2. On Fabric it also needs **Fabric API**. Works on dedicated
+**Minecraft 26.2 or 26.3** — a separate file for each, so take the one that
+matches your game. On Fabric it also needs **Fabric API**. Works on dedicated
 servers, and is required on both the client and the server.
+
+On 26.3, NeoForge itself is still in beta: that is the only NeoForge build for
+that version, not something this mod chose.
 
 If your launcher supplies its own Java instead of the bundled runtime, it has to
 be Java 25 or newer.
@@ -201,6 +209,18 @@ not committed, so nothing else will warn you.
 em dashes -- a platform that counts bytes rather than characters would charge three for each one,
 and the difference only shows when the text is silently truncated.
 
+### `doors.gif`
+
+**Title** -- Every door in the mod
+
+**Description** (240 characters)
+
+> Every door in the mod, a family per row and every size of it side by side: solid, glazed,
+> saloon, fusuma, painted, all-glass, sliding glass, bookshelf and the stone doorway. It cycles
+> the twelve woods, the two stones and the nine paintings.
+
+Regenerate with `python tools/gen_showcase.py .`
+
 ### `recipes-doors.gif`
 
 **Title** -- How a door is made
@@ -223,49 +243,72 @@ and the difference only shows when the text is silently truncated.
 
 ---
 
-## Version changelog — 0.5.0
+## Version changelog — 0.6.0
 
-**Stone doorways, and doors that can be three blocks tall.**
+**Wooden doors cost planks now, and Minecraft 26.3 is supported.**
 
-Eight new doors in cobblestone and cobbled deepslate, one and two columns wide,
-two or three rows tall. The three-row ones carry a round arch.
+## Doors are made of planks
 
-They are built the way a medieval door was: the leaf is **timber** and the stone
-is the wall it hangs in. The boards are weathered — no two from the same tree,
-some streaked where water has run down them for years, darker at the foot where
-the damp comes up — and strapped twice in wrought iron, the straps crossing so
-they never line up.
+A wooden door took six **logs**. It now takes six **planks**, in all twelve
+woods — which is what a door has been made of in vanilla since there were doors.
 
-**The masonry does not move.** Open the door and the jambs stand where they were,
-with the leaf swung through them; the arch stays with them. They are solid, so
-they are the one part of a door in this mod you can walk into.
+That makes them about four times cheaper. Wider doors are still built from
+narrower ones, so a door **four blocks across is now six planks and a hinge**.
+A one-wide door costs less wood than the vanilla door it is the same size as, and
+the iron in the hinge is what you pay instead.
 
-Height now works the way width always has: a taller door is a **separate block**,
-not a property carried by every door. Doors two blocks tall are untouched, and
-every door already standing in your world keeps the state it was saved with.
+Nothing changes for doors already standing, and this applies on both game
+versions.
+
+## Minecraft 26.3, and 26.2 stays
+
+Two files per loader from here on — take the one that matches your game. Every
+door, every painting and every style behaves identically on both: doors that
+slide, swing both ways, oxidise or stand in stone came through the port
+untouched.
+
+What did have to change is something you would only have noticed by losing it.
+26.3 rebuilt the way loot tables describe their conditions, and a door whose
+table the game cannot read **drops nothing at all** — no error, no warning. Each
+version now gets its own tables, written together in one pass, and the release
+check refuses a door whose table is missing on either version or written in the
+other one's format.
 
 Also in this release:
 
-- the asset checker now refuses a model no blockstate points at, which caught 48
-  models that had been shipping in every release for nothing
-- a sixteenth in-game test, covering the whole vertical axis at once
+- the block codecs are gone. 26.3 removed the registry behind them, and it turned
+  out they had never been required on 26.2 either — nothing in the game ever read
+  a door through one, and one of them had been quietly wrong since tall doors
+  arrived
+- on 26.3, NeoForge itself is still in beta. That is the only NeoForge build for
+  that version rather than a choice made here
 
 ---
 
 ## The release checklist
 
-1. `mod_version` in `gradle.properties`
-2. `python tools/gen_assets.py .`
-3. `gradlew :fabric:runDatagen`
-4. `python tools/check_assets.py .` — must be green in both directions
-5. `gradlew :fabric:runGameTest`
-6. `README.md` — the door count, the file and model counts, the state budget, the
-   number of scenarios
-7. `DECISIONS.md` — a numbered entry for anything non-obvious, including the
+Every game version in `minecraft_targets` gets its own jars, so steps 3 to 6 run **once per
+version**. `gradlew minecraftVersions` lists them. On PowerShell the flag must be quoted —
+`"-Pmc=26.2"` — or the shell drops everything after the dot.
+
+1. `mod_version` in `gradle.properties`, and `versions/<version>.properties` if a
+   Fabric API or NeoForge build moved
+2. `python tools/gen_assets.py .` — writes every version's loot tables in one pass
+3. `gradlew :fabric:runDatagen` **and** `gradlew :fabric:runDatagen -Pmc=26.2`
+4. `python tools/check_assets.py .` — green in both directions, and for every
+   version. Run it after the last datagen, not between them
+5. `gradlew :fabric:runGameTest` and `-Pmc=26.2`
+6. `gradlew build` and `gradlew build -Pmc=26.2` — four jars, each naming its
+   game version in the file name
+7. `README.md` — the door count, the file and model counts, the state budget, the
+   number of scenarios, and the version tables
+8. `DECISIONS.md` — a numbered entry for anything non-obvious, including the
    options that were **declined** and why
-8. **This file** — description, summary, and a changelog for the new version
-9. `python tools/gen_recipes.py .` — **whenever a recipe changed**. It draws the recipe sheets
-   into `Screenshots/`, which is not committed, so nothing warns you they have gone stale
-10. Commit, tag, push
-11. GitHub release, then Modrinth, then CurseForge — the recipe sheets are uploaded as images
-    on the store pages, not attached to the release
+9. **This file** — description, summary, and a changelog for the new version
+10. `python tools/gen_recipes.py .` — **whenever a recipe changed**. It draws the recipe sheets
+    into `Screenshots/`, which is not committed, so nothing warns you they have gone stale
+11. Commit, tag, push
+12. GitHub release, then Modrinth, then CurseForge. Upload **all four jars** and tag each with
+    its own game version — a file tagged with the wrong version is installed by people it will
+    not work for. The recipe sheets are uploaded as images on the store pages, not attached to
+    the release

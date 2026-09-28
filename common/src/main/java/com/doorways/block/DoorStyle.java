@@ -108,10 +108,22 @@ public enum DoorStyle {
     }
 
     /**
+     * Whether you can see through this style's panels.
+     *
+     * <p>The glass ones carry partial alpha -- glazed only in its upper half, and that is
+     * enough. Every other door in the mod is opaque, paper included. Two things downstream turn
+     * on it: which path draws the door ({@link #drawnByRenderer()}), and how the cracks are
+     * composited over one being mined.
+     */
+    public boolean seeThrough() {
+        return this == GLAZED || this == FULL_GLASS || this == SLIDING_GLASS;
+    }
+
+    /**
      * Whether this style's blocks are drawn by the renderer at all times, rather than by the
      * chunk's mesh whenever they are standing still.
      *
-     * <p>True for the one style whose panels are <b>see-through</b>, and for that reason alone.
+     * <p>True for the one <b>sliding</b> style that is see-through, and for that reason alone.
      * Every other sliding door hands its drawing back and forth between the mesh and the
      * renderer -- mesh at rest, renderer while travelling -- and the two draw it identically,
      * so the handover cannot be seen. On glass they do not:
@@ -134,7 +146,7 @@ public enum DoorStyle {
      * door that looks the same standing still as it does moving.
      */
     public boolean drawnByRenderer() {
-        return this == SLIDING_GLASS;
+        return slides() && seeThrough();
     }
 
     /**

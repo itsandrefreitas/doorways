@@ -1,6 +1,51 @@
+// One source tree, several Minecraft versions.
+//
+// The versions are listed in `minecraft_targets` and described one file each under versions/.
+// `-Pmc=26.2` picks one; without it the newest is built. Nothing else in the build knows a
+// game version number: every module reads `mc.<key>` from the catalogue chosen here.
+//
+// The alternative -- a branch per game version -- was declined. The cost is not the Java, of
+// which two expressions differ: it is the 3,024 generated files, which every feature rewrites
+// and which would then have to be regenerated and cherry-picked on each branch, with
+// check_assets.py only ever able to see the branch it is standing on. See DECISIONS.md, D-41.
+def targets = minecraft_targets.split(',').collect { it.trim() }
+def target = (findProperty('mc') ?: targets.first()).toString()
+if (!targets.contains(target)) {
+    def message = "-Pmc=${target} is not a version this tree builds for: ${targets.join(', ')}"
+    // PowerShell splits an unquoted -Pmc=26.3 into two arguments, `-Pmc=26` and `.3`, so what
+    // arrives here is the version with everything after the dot missing. Gradle then reports a
+    // value the user never typed, against a list that plainly contains what they meant, which
+    // reads as a bug in the build rather than in the shell.
+    def truncated = targets.findAll { it.startsWith(target + '.') }
+    if (truncated) {
+        message += "\n\nThat looks truncated. PowerShell splits an unquoted -Pmc=${truncated.first()}" +
+                " into two arguments; quote it:\n    .\\gradlew build \"-Pmc=${truncated.first()}\""
+    }
+    throw new GradleException(message)
+}
+
+def catalogue = new Properties()
+def catalogueFile = file("versions/${target}.properties")
+if (!catalogueFile.isFile()) {
+    throw new GradleException("minecraft_targets lists ${target}, but versions/${target}"
+            + ".properties does not exist -- the two have to be added together")
+}
+// Java's own .properties format, and so ISO-8859-1 -- the same reason mod_authors is escaped.
+catalogueFile.withInputStream { catalogue.load(it) }
+
+// Said once, out loud: two versions share this checkout, and the build directory, the Gradle
+// caches and the run directory all belong to whichever was built last.
+logger.lifecycle("Doorways ${mod_version} for Minecraft ${target}")
+
 allprojects {
     group = mod_group
     version = mod_version
+
+    ext {
+        // The game version being built, and everything that differs because of it.
+        mcTarget = target
+        mc = catalogue
+    }
 }
 
 subprojects {
@@ -17,5 +62,22 @@ subprojects {
 
     repositories {
         mavenCentral()
+    }
+}
+
+// Lists what this tree can build, for anyone who does not know the flag exists.
+tasks.register('minecraftVersions') {
+    group = 'help'
+    description = 'Lists the Minecraft versions this source tree builds for.'
+    doLast {
+        targets.each { known ->
+            def props = new Properties()
+            file("versions/${known}.properties").withInputStream { props.load(it) }
+            println "${known == target ? '*' : ' '} ${known}" +
+                    "  Fabric API ${props.fabric_api_version}" +
+                    "  NeoForge ${props.neoforge_version}"
+        }
+        println "  (* is what this invocation builds; choose another with -Pmc=<version>,"
+        println "   and with no flag the first in minecraft_targets wins)"
     }
 }

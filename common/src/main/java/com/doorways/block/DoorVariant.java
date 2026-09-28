@@ -1,5 +1,6 @@
 package com.doorways.block;
 
+import com.doorways.compat.Vanilla;
 import com.doorways.core.geometry.DoorLayout;
 import com.doorways.core.geometry.DoorMode;
 import java.util.ArrayList;
@@ -17,7 +18,6 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.properties.BlockSetType;
 import net.minecraft.world.level.block.state.properties.NoteBlockInstrument;
 import net.minecraft.world.level.material.MapColor;
-import net.minecraft.world.level.material.PushReaction;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -228,14 +228,14 @@ public record DoorVariant(Material material, int width, int height, DoorMode mod
                         : NoteBlockInstrument.BASS)
                 .strength(material.strength())
                 .noOcclusion()
-                .pushReaction(PushReaction.DESTROY)
+                .pushReaction(Vanilla.POPPED)
                 .sound(style == DoorStyle.GLAZED ? SoundType.GLASS : material.sound())
                 .setId(blockKey(modId));
 
         BlockBehaviour.Properties properties = material.flammable() ? base.ignitedByLava() : base;
         // Every door is built through sized(): the state definition needs the width before the
-        // constructor can hold one. This is the path registration takes; the codecs take the
-        // same one.
+        // constructor can hold one. This is now the only path in -- the block codecs that used
+        // to offer a second one are gone, 26.3 having removed the registry they served (D-43).
         // The three specialised classes exist only at the usual height, and each keeps the
         // constructor it always had. Should one of them ever be given a height of its own, the
         // guard in WideDoorBlock's constructor says so on the spot.

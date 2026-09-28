@@ -2,7 +2,7 @@
   "type": "minecraft:crafting_shaped",
   "category": "building",
   "key": {
-    "L": "minecraft:cherry_log",
+    "L": "minecraft:cherry_planks",
     "H": "doorways:iron_hinge"
   },
   "pattern": [

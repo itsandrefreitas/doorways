@@ -3,20 +3,23 @@ plugins {
 }
 
 base {
-    archivesName = "${mod_id}-neoforge"
+    archivesName = "${mod_id}-neoforge-${mc.minecraft_version}"
 }
 
-// The same share-by-source arrangement as the fabric module.
+// The same share-by-source arrangement as the fabric module, including the version-specific
+// roots.
 sourceSets.main.java.srcDirs += [
         project(':core').file('src/main/java'),
         project(':common').file('src/main/java'),
+        project(':common').file("src/main/java-${mcTarget}"),
 ]
 sourceSets.main.resources.srcDirs += [
         project(':common').file('src/main/resources'),
+        project(':common').file("src/main/resources-${mcTarget}"),
 ]
 
 neoForge {
-    version = neoforge_version
+    version = mc.neoforge_version
 
     runs {
         client {
@@ -35,7 +38,8 @@ neoForge {
 }
 
 // The NeoForm tools (decompile, apply patches, download assets) ask for Java 21 by default,
-// and this project only requires 25 -- which is what Minecraft 26.2 mandates. Rather than
+// and this project only requires 25 -- which is what Minecraft 26.2 and 26.3 both mandate.
+// Rather than
 // requiring two JDKs to be installed, NFRT is pointed at the project toolchain: it is an
 // ordinary Java tool and runs fine on 25.
 def projectLauncher = javaToolchains.launcherFor {
@@ -54,8 +58,8 @@ def generateModMetadata = tasks.register('generateModMetadata', ProcessResources
             mod_description        : mod_description,
             mod_license            : mod_license,
             mod_authors            : mod_authors,
-            minecraft_version_range: minecraft_version_range,
-            neoforge_version       : neoforge_version,
+            minecraft_version_range: mc.minecraft_version_range,
+            neoforge_version       : mc.neoforge_version,
     ]
     inputs.properties props
     expand props

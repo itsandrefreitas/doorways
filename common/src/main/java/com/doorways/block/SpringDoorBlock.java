@@ -1,10 +1,6 @@
 package com.doorways.block;
 
-import com.doorways.core.geometry.DoorLayout;
 import com.doorways.core.geometry.DoorMode;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.properties.BlockSetType;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
@@ -23,20 +19,6 @@ import net.minecraft.world.level.block.state.properties.EnumProperty;
  */
 public class SpringDoorBlock extends WideDoorBlock {
 
-    public static final MapCodec<SpringDoorBlock> CODEC = RecordCodecBuilder.mapCodec(
-        i -> i.group(
-                Codec.intRange(DoorLayout.MIN_WIDTH, DoorLayout.MAX_WIDTH)
-                        .fieldOf("width").forGetter(WideDoorBlock::width),
-                Codec.STRING.xmap(DoorMode::valueOf, DoorMode::name)
-                        .fieldOf("mode").forGetter(WideDoorBlock::mode),
-                Codec.STRING.xmap(DoorStyle::valueOf, DoorStyle::name)
-                        .fieldOf("style").forGetter(WideDoorBlock::style),
-                BlockSetType.CODEC.fieldOf("block_set_type").forGetter(WideDoorBlock::type),
-                propertiesCodec())
-            .apply(i, (width, mode, style, type, properties) ->
-                    sized(width, mode, () ->
-                            new SpringDoorBlock(width, mode, style, type, properties))));
-
     /** The same property as the shared one, with the third position a spring hinge allows. */
     public static final EnumProperty<DoorSwing> SWING_BOTH_WAYS =
             EnumProperty.create("swing", DoorSwing.class);
@@ -44,11 +26,6 @@ public class SpringDoorBlock extends WideDoorBlock {
     public SpringDoorBlock(int width, DoorMode mode, DoorStyle style, BlockSetType type,
                            BlockBehaviour.Properties properties) {
         super(width, mode, style, type, properties);
-    }
-
-    @Override
-    protected MapCodec<? extends WideDoorBlock> codec() {
-        return CODEC;
     }
 
     @Override

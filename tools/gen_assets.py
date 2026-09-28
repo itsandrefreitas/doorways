@@ -21,6 +21,7 @@ from materials import (COPPER_IDS, DEFAULT_HEIGHT, GLASS_ID, IRON_ID, MATERIALS,
                        STONE_IDS, STYLES, block_name, display_name, model_stem, oxidation_chain,
                        roles, row_kinds, waxable_pairs)
 from palettes import palette_from, read_png
+from targets import at_least, client_jar, data_root, targets
 
 MOD = "doorways"
 HINGE = "iron_hinge"
@@ -31,8 +32,11 @@ DATA = os.path.join(ROOT, "common", "src", "main", "resources", "data", MOD)
 # Tags live under minecraft's own namespace: a datapack that names a vanilla tag adds to it.
 VANILLA_DATA = os.path.join(ROOT, "common", "src", "main", "resources", "data", "minecraft")
 
-CLIENT_JAR = os.path.expanduser(
-    "~/.gradle/caches/neoformruntime/artifacts/minecraft_26.2_client.jar")
+# The game versions this tree builds for. Everything below is written once and shared, except
+# the loot tables, which are written once per version -- see loot_table().
+TARGETS = targets(ROOT)
+
+CLIENT_JAR = client_jar(ROOT)
 
 # Ironwork and glass are the same for every material: they are the mod's identity.
 IRON = (146, 148, 155, 255)
@@ -1231,9 +1235,14 @@ def main():
                     write_json(os.path.join(ASSETS, "models", "item", block + ".json"),
                                {"parent": "item/generated",
                                 "textures": {"layer0": f"{MOD}:item/{block}"}})
-                    write_json(os.path.join(DATA, "loot_table", "blocks", block + ".json"),
-                               loot_table(block, width, height))
-                    n += 3
+                    # One per game version: the format changed in 26.3, and a table the game
+                    # cannot read is a door that drops nothing.
+                    for target in TARGETS:
+                        write_json(os.path.join(data_root(ROOT, target), MOD,
+                                                "loot_table", "blocks", block + ".json"),
+                                   loot_table(block, width, height, target))
+                        n += 1
+                    n += 2
 
             n += write_recipes(material, craft, style, widths, heights)
 
@@ -2044,7 +2053,7 @@ def write_paintings(lang):
     return written
 
 
-def loot_table(block, width, height=DEFAULT_HEIGHT):
+def loot_table(block, width, height=DEFAULT_HEIGHT, target=None):
     """Only the anchor (bottom row, column 0) drops anything: this prevents duplication when
     an explosion catches several columns. The same trick vanilla oak_door uses, widened to
     cover PART and now HEIGHT too.
@@ -2057,10 +2066,36 @@ def loot_table(block, width, height=DEFAULT_HEIGHT):
 
     The row is spelled two ways for the same reason the block declares it two ways: `half` at
     the usual height, so that every door written before there were tall ones keeps working, and
-    a plain `row` above it."""
+    a plain `row` above it.
+
+    **This is the one file in the mod whose format differs between game versions.** 26.3 rebuilt
+    loot conditions as registry entries: a pool and an entry now take one `condition` rather than
+    a list of them, `block_state_property` was removed in favour of `match_block`, and `rolls`
+    became an integer provider, so the 1.0 that 26.2 wants is no longer a number it will read.
+    None of that fails loudly -- a table the game cannot parse is a door that drops nothing,
+    which is the same silence as D-38. So both shapes are written, every run, into the version's
+    own resources root, and check_assets.py reads them back in both spellings."""
     anchor = {"half": "lower"} if height == DEFAULT_HEIGHT else {"row": "0"}
     if width > 1:
         anchor["part"] = "0"
+    if target and at_least(target, "26.3"):
+        return {
+            "type": "minecraft:block",
+            "random_sequence": f"{MOD}:blocks/{block}",
+            "pools": [{
+                "rolls": 1,
+                "condition": {"type": "minecraft:survives_explosion"},
+                "entries": [{
+                    "type": "minecraft:item",
+                    "name": f"{MOD}:{block}",
+                    "condition": {
+                        "type": "minecraft:match_block",
+                        "blocks": f"{MOD}:{block}",
+                        "state": anchor,
+                    },
+                }],
+            }],
+        }
     return {
         "type": "minecraft:block",
         "random_sequence": f"{MOD}:blocks/{block}",
@@ -2131,17 +2166,18 @@ LADDER = {
 
 
 def body_ingredient(material, craft, style):
-    """What the door body is made of.
+    """What the door body is made of: the material's own, whatever that is.
 
-    Saloon doors take planks rather than whole logs: they are light, slatted things, and it
-    keeps their recipe clear of the solid door's.
+    Wood means planks, in every style -- which is why saloon and fusuma no longer name planks
+    for themselves. They used to, back when a solid door was built from whole logs and they were
+    the exception; now they are the rule, and spelling it twice would only let the two drift.
+
+    The one real exception is the sliding glass door. Its frame is wood and its material is
+    glass, so there is no wood to take it from, and rather than picking one of the twelve
+    arbitrarily it accepts any planks at all.
     """
-    if style == "saloon":
-        return f"minecraft:{material}_planks"
-    # A shoji is a wooden frame around a panel. The glass one has no wood of its own, so its
-    # frame takes any planks rather than picking one arbitrarily.
-    if style in SLIDING:
-        return "#minecraft:planks" if style == "sliding_glass" else f"minecraft:{material}_planks"
+    if style == "sliding_glass":
+        return "#minecraft:planks"
     return craft
 
 

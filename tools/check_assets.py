@@ -17,10 +17,19 @@ import json
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from targets import at_least, data_root, targets
+
 ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
 BASE = os.path.join(ROOT, "common", "src", "main", "resources")
 ASSETS = os.path.join(BASE, "assets", "doorways")
 DATA = os.path.join(BASE, "data", "doorways")
+
+# One source tree, several game versions. Everything above is shared; the loot tables are not,
+# and every one of them is checked for every version -- which is the whole argument for keeping
+# the versions in one tree rather than on branches (D-41). On a branch this loop could only ever
+# see the branch it was standing on.
+TARGETS = targets(ROOT)
 
 problems = []
 
@@ -51,14 +60,17 @@ doors = names(ASSETS, "blockstates")
 expect(doors, "no blockstates found -- run gradlew :fabric:runDatagen")
 
 # Every door needs the full set. The blockstates come from datagen, the rest from gen_assets.
-report("loot tables", doors - names(DATA, "loot_table", "blocks"))
 report("item definitions", doors - names(ASSETS, "items"))
 report("item models", doors - names(ASSETS, "models", "item"))
 report("item textures", doors - names(ASSETS, "textures", "item"))
 
-# Doors that only one side knows about.
-report("blockstates without a loot table", doors - names(DATA, "loot_table", "blocks"))
-report("loot tables without a blockstate", names(DATA, "loot_table", "blocks") - doors)
+# Doors that only one side knows about, for each game version's own tables. A door missing a
+# table on one version only is the easiest mistake to make here and the hardest to see: it
+# drops nothing, on that version, and nothing else says so.
+for target in TARGETS:
+    tables = names(data_root(ROOT, target), "doorways", "loot_table", "blocks")
+    report(f"loot tables on {target}", doors - tables)
+    report(f"loot tables on {target} without a blockstate", tables - doors, "unrecognised")
 
 # Every model a blockstate points at has to exist, and every texture a model asks for has to
 # exist too.
@@ -158,10 +170,17 @@ def properties_of(door):
 
 
 def loot_conditions(node):
-    """Every block_state_property condition anywhere in a loot table."""
+    """Every state test anywhere in a loot table, in either version's spelling.
+
+    26.2 writes `{"condition": "minecraft:block_state_property", "properties": {...}}`;
+    26.3 writes `{"type": "minecraft:match_block", "state": {...}}`. Both are yielded as the
+    plain map of property names to values, so the caller need not know which it is reading.
+    """
     if isinstance(node, dict):
         if node.get("condition") == "minecraft:block_state_property":
             yield node.get("properties", {})
+        if node.get("type") == "minecraft:match_block":
+            yield node.get("state", {})
         for value in node.values():
             yield from loot_conditions(value)
     elif isinstance(node, list):
@@ -169,15 +188,31 @@ def loot_conditions(node):
             yield from loot_conditions(value)
 
 
-for door in sorted(doors & names(DATA, "loot_table", "blocks")):
-    declared = properties_of(door) | NOT_DISPATCHED
-    with io.open(os.path.join(DATA, "loot_table", "blocks", door + ".json"),
-                 encoding="utf-8") as f:
-        table = json.load(f)
-    for condition in loot_conditions(table):
-        for named in condition:
-            expect(named in declared,
-                   f"loot table {door} tests '{named}', which that door does not have")
+def wrong_shape(target, text):
+    """Whether a table is written in the other version's format.
+
+    Neither game complains: it refuses the table and the door drops nothing. This is the only
+    place that notices, and it is why the tables are generated for every version at once rather
+    than by hand for whichever one is being built.
+    """
+    if at_least(target, "26.3"):
+        return "minecraft:block_state_property" in text or '"rolls": 1.0' in text
+    return "minecraft:match_block" in text
+
+
+for target in TARGETS:
+    blocks = os.path.join(data_root(ROOT, target), "doorways", "loot_table", "blocks")
+    for door in sorted(doors & names(blocks)):
+        declared = properties_of(door) | NOT_DISPATCHED
+        with io.open(os.path.join(blocks, door + ".json"), encoding="utf-8") as f:
+            text = f.read()
+        expect(not wrong_shape(target, text),
+               f"loot table {door} under resources-{target} is in another version's format")
+        for condition in loot_conditions(json.loads(text)):
+            for named in condition:
+                expect(named in declared,
+                       f"loot table {door} on {target} tests '{named}', "
+                       "which that door does not have")
 
 # Every door has to belong to a tool, and to exactly one. Without a mineable tag an axe gives
 # no bonus on a wooden door, which does not change its hardness but makes it visibly slower to

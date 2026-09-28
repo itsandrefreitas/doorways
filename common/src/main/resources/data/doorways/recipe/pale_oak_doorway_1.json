@@ -2,7 +2,7 @@
   "type": "minecraft:crafting_shaped",
   "category": "building",
   "key": {
-    "L": "minecraft:pale_oak_log",
+    "L": "minecraft:pale_oak_planks",
     "H": "doorways:iron_hinge"
   },
   "pattern": [

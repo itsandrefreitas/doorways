@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:block",
+  "random_sequence": "doorways:blocks/birch_fusuma_doorway_4",
+  "pools": [
+    {
+      "rolls": 1,
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "doorways:birch_fusuma_doorway_4",
+          "condition": {
+            "type": "minecraft:match_block",
+            "blocks": "doorways:birch_fusuma_doorway_4",
+            "state": {
+              "half": "lower",
+              "part": "0"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

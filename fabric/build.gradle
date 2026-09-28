@@ -2,18 +2,26 @@ plugins {
     id 'net.fabricmc.fabric-loom'
 }
 
+// The game version is in the file name, not in the mod version: two jars of the same Doorways
+// release differ only in the Minecraft they were built against, and a player picking a file on
+// Modrinth should be able to see which is which without opening it.
 base {
-    archivesName = "${mod_id}-fabric"
+    archivesName = "${mod_id}-fabric-${mc.minecraft_version}"
 }
 
 // Shared by source, not by jar: this avoids cross-project remapping, which is the brittle
 // part of any multi-loader setup.
+//
+// The `-${mcTarget}` roots are the version-specific ones: a few lines of Java that cannot be
+// spelled the same way on both, and the loot tables, whose format changed in 26.3.
 sourceSets.main.java.srcDirs += [
         project(':core').file('src/main/java'),
         project(':common').file('src/main/java'),
+        project(':common').file("src/main/java-${mcTarget}"),
 ]
 sourceSets.main.resources.srcDirs += [
         project(':common').file('src/main/resources'),
+        project(':common').file("src/main/resources-${mcTarget}"),
 ]
 
 loom {
@@ -68,12 +76,12 @@ fabricApi {
 }
 
 dependencies {
-    // No mappings and no `modImplementation`: 26.2 is not obfuscated, so Loom remaps neither
-    // Minecraft nor the mods, and the `mod*` configurations no longer exist.
-    minecraft "com.mojang:minecraft:${minecraft_version}"
+    // No mappings and no `modImplementation`: Minecraft stopped being obfuscated in 26.1, so
+    // Loom remaps neither Minecraft nor the mods, and the `mod*` configurations no longer exist.
+    minecraft "com.mojang:minecraft:${mc.minecraft_version}"
 
-    implementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
-    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    implementation "net.fabricmc:fabric-loader:${mc.fabric_loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${mc.fabric_api_version}"
 }
 
 tasks.named('processResources') {
@@ -85,8 +93,8 @@ tasks.named('processResources') {
             mod_license          : mod_license,
             mod_authors          : mod_authors,
             java_version         : java_version,
-            minecraft_version    : minecraft_version,
-            fabric_loader_version: fabric_loader_version,
+            minecraft_version    : mc.minecraft_version,
+            fabric_loader_version: mc.fabric_loader_version,
     ]
     inputs.properties props
     filesMatching('fabric.mod.json') {

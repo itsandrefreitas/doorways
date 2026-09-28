@@ -1,6 +1,6 @@
 # Doorways
 
-Articulated doors 1 to 4 blocks wide and 2 or 3 blocks tall, for Minecraft 26.2.
+Articulated doors 1 to 4 blocks wide and 2 or 3 blocks tall, for Minecraft **26.2 and 26.3**.
 Runs on both Fabric and NeoForge.
 
 The project started from a Portuguese specification document, kept outside this repository.
@@ -101,9 +101,9 @@ it to be* — for reading redstone, for receiving neighbour updates, or for bein
 
 ## Generated assets
 
-2790 files — 234 blockstates holding 13,568 variants between them, 840 block models, 653
-textures, 333 recipes, 234 loot tables. None of it is hand-edited, and it comes from **two**
-generators with a deliberate split:
+3024 files — 234 blockstates holding 13,568 variants between them, 840 block models, 653
+textures, 333 recipes, and 234 loot tables **per game version**. None of it is hand-edited, and
+it comes from **two** generators with a deliberate split:
 
 | Generator | Owns | Why |
 |---|---|---|
@@ -122,11 +122,16 @@ script checks that they still do:
 python tools/check_assets.py .
 ```
 
-It verifies that every door has a blockstate, loot table, item definition, model, texture and
-translation, that every model a blockstate points at exists **and every model is pointed at**,
-that every texture a model asks for exists, that every door belongs to exactly one tool tag, that
-no recipe produces something unregistered, and that **no loot table names a property its door
-does not have**. It exits non-zero on the first inconsistency.
+It verifies that every door has a blockstate, item definition, model, texture and translation,
+that every model a blockstate points at exists **and every model is pointed at**, that every
+texture a model asks for exists, that every door belongs to exactly one tool tag, that no recipe
+produces something unregistered, that **no loot table names a property its door does not have**,
+and — for **every supported game version** — that each door has a loot table there and that it
+is written in that version's own format. It exits non-zero on the first inconsistency.
+
+That last pair is the argument for keeping both versions in one branch rather than two. A loot
+table in the wrong format is refused by the game and the door drops nothing, silently; on
+separate branches this script could only ever check the branch it was standing on.
 
 The second half of that model rule is what catches a **stale blockstate**: the two generators can
 be run apart, so adding a row kind writes models no variant mentions while every other check
@@ -167,9 +172,12 @@ core/            pure Java — geometry, testable without the game
 common/block/    WideDoorBlock and the three subclasses, DoorVariant, DoorStyle
 common/client/   the sliding renderer — the only client code outside the loaders
 common/test/     the GameTest scenarios, in vanilla API so both loaders could run them
+common/src/main/java-<version>/       Vanilla.java — the spellings that differ, and nothing else
+common/src/main/resources-<version>/  the loot tables, whose format changed in 26.3
 fabric/          registration, creative tab, oxidation, datagen, GameTests
 neoforge/        deferred registration, entrypoint, copper data map check
 tools/           texture and asset generator (Python, no dependencies)
+versions/        one file per Minecraft version: what differs between them
 ```
 
 Since 26.1 Minecraft is **not obfuscated**, so there are no mappings and no remapping: both
@@ -179,10 +187,41 @@ loaders see exactly the same names. That is what makes `common` shareable for fr
 depending on their jars. This avoids cross-project remapping, which is the brittle part of any
 multi-loader setup.
 
+## Two Minecraft versions, one branch
+
+```bash
+gradlew build                # the newest version — 26.3
+gradlew build "-Pmc=26.2"
+gradlew minecraftVersions    # what this tree can build, and which is the default
+```
+
+**Quote the flag on PowerShell.** It splits an unquoted `-Pmc=26.2` into two arguments,
+`-Pmc=26` and `.2`, so the build is handed a version that does not exist. The error says so when
+it happens, but the quotes avoid it.
+
+The versions are listed in `minecraft_targets` in `gradle.properties` and described one file
+each in `versions/`. Nothing else in the build holds a version number.
+
+Almost the whole mod is written once. What differs is:
+
+| | |
+|---|---|
+| `versions/<version>.properties` | the version numbers of Minecraft, Fabric API and NeoForge |
+| `common/src/main/java-<version>/…/Vanilla.java` | the two expressions vanilla renamed |
+| `common/src/main/resources-<version>/` | the loot tables — 26.3 rebuilt loot conditions |
+
+**`Vanilla.java` is the measure of the drift.** It works while every difference is one
+expression that can be given a name. The first one that cannot — a method that has to stop
+overriding something, a class that has to implement a different interface — is the signal to
+move to a preprocessor. See D-41.
+
+Switching versions makes Gradle fetch that Minecraft and re-run datagen, so the first build
+after a switch is slow. `build/` and `run/` belong to whichever was built last.
+
 ## Requirements
 
-- **JDK 25** — mandatory. Minecraft 26.2 ships Java 25 and mods must target it.
-- Gradle 9.5.1, via the wrapper.
+- **JDK 25** — mandatory. Minecraft 26.2 and 26.3 both ship Java 25 and mods must target it.
+- Gradle 9.8.0, via the wrapper. 26.3 needs 9.6 or newer.
 
 ```bash
 winget install EclipseAdoptium.Temurin.25.JDK
@@ -231,7 +270,7 @@ Dedicated servers need `eula=true` in their `run/eula.txt`, generated on the fir
 
 ## Environment notes
 
-Gradle 8.9 on Java 17 fails here with `Unable to establish loopback connection`. Gradle 9.5.1 on
+Gradle 8.9 on Java 17 fails here with `Unable to establish loopback connection`. Gradle 9.x on
 JDK 25 does not — it is not a firewall issue, it is the old combination. Always use the wrapper.
 
 The warning `WARNING: A restricted method in java.lang.System has been called` comes from
@@ -248,19 +287,30 @@ removed in Gradle 9.5 and breaks every task that requests a toolchain. See D-30.
 
 ## Versions
 
-All verified against official sources, not guessed. See `gradle.properties` and D-01 in
+All verified against official sources, not guessed: the Fabric meta API for the loader,
+Modrinth for Fabric API, the NeoForged maven for NeoForge, and Mojang's own version manifest
+for the Java release. See `gradle.properties`, `versions/`, and D-01 in
 [DECISIONS.md](DECISIONS.md).
+
+Shared by both:
 
 | | |
 |---|---|
-| Minecraft | 26.2 |
 | Java | 25 |
-| Gradle | 9.5.1 |
+| Gradle | 9.8.0 |
 | Fabric Loom | 1.17-SNAPSHOT (resolves to 1.17.20) |
-| Fabric Loader | 0.19.3 |
-| Fabric API | 0.158.0+26.2 |
-| ModDevGradle | 2.0.144 |
-| NeoForge | 26.2.0.70 |
+| ModDevGradle | 2.0.147 |
+
+Per game version:
+
+| | 26.2 | 26.3 |
+|---|---|---|
+| Fabric Loader | 0.19.3 | 0.19.5 |
+| Fabric API | 0.158.0+26.2 | 0.161.0+26.3 |
+| NeoForge | 26.2.0.70 | 26.3.0.31-beta |
+
+NeoForge has published nothing but betas for 26.3, so that is also the only build a player on
+26.3 can install.
 
 ## Contributing
 

@@ -2,7 +2,7 @@
   "type": "minecraft:crafting_shaped",
   "category": "building",
   "key": {
-    "L": "minecraft:spruce_log",
+    "L": "minecraft:spruce_planks",
     "H": "doorways:iron_hinge"
   },
   "pattern": [

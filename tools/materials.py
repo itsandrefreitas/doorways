@@ -31,20 +31,24 @@ def _copper():
     return out
 
 
+# A wooden door is built from **planks**, in every style. It used to be whole logs, which made
+# a door cost four times what it does now and put the two nether woods and bamboo in the odd
+# position of naming a stem or a block instead of a plank. Planks are also what a door has been
+# made of in vanilla since there were doors.
 WOODS = [
     # id            name            vanilla texture      body ingredient
-    ("oak",        "Oak",         "oak_planks",        "minecraft:oak_log"),
-    ("spruce",     "Spruce",      "spruce_planks",     "minecraft:spruce_log"),
-    ("birch",      "Birch",       "birch_planks",      "minecraft:birch_log"),
-    ("jungle",     "Jungle",      "jungle_planks",     "minecraft:jungle_log"),
-    ("acacia",     "Acacia",      "acacia_planks",     "minecraft:acacia_log"),
-    ("dark_oak",   "Dark Oak",    "dark_oak_planks",   "minecraft:dark_oak_log"),
-    ("mangrove",   "Mangrove",    "mangrove_planks",   "minecraft:mangrove_log"),
-    ("cherry",     "Cherry",      "cherry_planks",     "minecraft:cherry_log"),
-    ("pale_oak",   "Pale Oak",    "pale_oak_planks",   "minecraft:pale_oak_log"),
-    ("bamboo",     "Bamboo",      "bamboo_planks",     "minecraft:bamboo_block"),
-    ("crimson",    "Crimson",     "crimson_planks",    "minecraft:crimson_stem"),
-    ("warped",     "Warped",      "warped_planks",     "minecraft:warped_stem"),
+    ("oak",        "Oak",         "oak_planks",        "minecraft:oak_planks"),
+    ("spruce",     "Spruce",      "spruce_planks",     "minecraft:spruce_planks"),
+    ("birch",      "Birch",       "birch_planks",      "minecraft:birch_planks"),
+    ("jungle",     "Jungle",      "jungle_planks",     "minecraft:jungle_planks"),
+    ("acacia",     "Acacia",      "acacia_planks",     "minecraft:acacia_planks"),
+    ("dark_oak",   "Dark Oak",    "dark_oak_planks",   "minecraft:dark_oak_planks"),
+    ("mangrove",   "Mangrove",    "mangrove_planks",   "minecraft:mangrove_planks"),
+    ("cherry",     "Cherry",      "cherry_planks",     "minecraft:cherry_planks"),
+    ("pale_oak",   "Pale Oak",    "pale_oak_planks",   "minecraft:pale_oak_planks"),
+    ("bamboo",     "Bamboo",      "bamboo_planks",     "minecraft:bamboo_planks"),
+    ("crimson",    "Crimson",     "crimson_planks",    "minecraft:crimson_planks"),
+    ("warped",     "Warped",      "warped_planks",     "minecraft:warped_planks"),
 ]
 
 IRON = ("iron", "Iron", "iron_block", "minecraft:iron_ingot")

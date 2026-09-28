@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:block",
+  "random_sequence": "doorways:blocks/cobbled_deepslate_doorway_2x3",
+  "pools": [
+    {
+      "rolls": 1,
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "doorways:cobbled_deepslate_doorway_2x3",
+          "condition": {
+            "type": "minecraft:match_block",
+            "blocks": "doorways:cobbled_deepslate_doorway_2x3",
+            "state": {
+              "row": "0",
+              "part": "0"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

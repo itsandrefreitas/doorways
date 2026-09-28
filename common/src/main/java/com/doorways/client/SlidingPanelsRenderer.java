@@ -4,6 +4,7 @@ import com.doorways.block.DoorPattern;
 import com.doorways.block.DoorSwing;
 import com.doorways.block.SlidingPanelsBlockEntity;
 import com.doorways.block.WideDoorBlock;
+import com.doorways.compat.Vanilla;
 import com.doorways.block.WideDoorGeometry;
 import com.doorways.core.geometry.DoorLayout;
 import com.doorways.core.geometry.Swing;
@@ -104,6 +105,7 @@ public class SlidingPanelsRenderer
         state.xOffset = 0.0F;
         state.zOffset = 0.0F;
         state.breakingParts.clear();
+        state.translucent = false;
         state.painting = null;
 
         BlockState blockState = door.getBlockState();
@@ -111,6 +113,8 @@ public class SlidingPanelsRenderer
                 || !(blockState.getBlock() instanceof WideDoorBlock block)) {
             return;
         }
+
+        state.translucent = block.style().seeThrough();
 
         // The offset is a signed count of columns; the wall axis turns it into a direction.
         float offset = door.panelOffset(partialTicks);
@@ -255,7 +259,7 @@ public class SlidingPanelsRenderer
         // The model the panel is drawn from was turned by its blockstate; this turns with it,
         // about the same point -- the centre of the block, not the hinge.
         poseStack.translate(0.5F, 0.5F, 0.5F);
-        poseStack.mulPose(Axis.YP.rotationDegrees(-state.leafRotation));
+        Vanilla.rotateDegrees(poseStack, Axis.YP, -state.leafRotation);
         poseStack.translate(-0.5F, -0.5F, -0.5F);
 
         float near = (state.frontTrack ? 0.0F : NEAR_TRACK) - DECAL_GAP;
@@ -308,9 +312,14 @@ public class SlidingPanelsRenderer
         }
         // Inside the same translation, so the cracks travel with the panel rather than staying
         // behind on the block the panel came from.
+        //
+        // Through Vanilla because 26.3 wants to be told whether the block is see-through, and
+        // 26.2 does not take the argument at all. A sliding door that is drawn here at rest is
+        // exactly the see-through one -- that is the whole reason it is drawn here (see the
+        // class comment), so the flag is the same question, already answered.
         if (state.panel != null && state.breakProgress != null && !state.breakingParts.isEmpty()) {
-            collector.submitBreakingBlockModel(
-                    poseStack, state.breakingParts, state.breakProgress.progress());
+            Vanilla.submitBreaking(collector, poseStack, state.breakingParts,
+                    state.breakProgress.progress(), state.translucent);
         }
         // The painting travels with the panel and turns on its own, so it takes the same
         // translation and adds a rotation of its own.

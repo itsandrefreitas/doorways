@@ -12,7 +12,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * What the renderer needs, pulled off the block entity once per frame.
  *
- * <p>26.2 splits rendering in two: {@code extractRenderState} reads the world, and
+ * <p>The game splits rendering in two: {@code extractRenderState} reads the world, and
  * {@code submit} draws from what it read and touches nothing else. This class is the handover
  * between them, and it is where the interpolated position will live once there is one.
  */
@@ -33,6 +33,12 @@ public class SlidingPanelsRenderState extends BlockEntityRenderState {
      * spends breaking the door.
      */
     public final List<BlockStateModelPart> breakingParts = new ArrayList<>();
+
+    /**
+     * Whether you can see through this panel, which decides how the cracks are composited over
+     * it. False for a fusuma, true for the sliding glass door.
+     */
+    public boolean translucent;
 
     /**
      * The painting on this panel, already resolved to a sprite, or null for bare paper.

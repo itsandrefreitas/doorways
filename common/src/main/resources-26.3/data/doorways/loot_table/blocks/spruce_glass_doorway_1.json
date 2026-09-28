@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:block",
+  "random_sequence": "doorways:blocks/spruce_glass_doorway_1",
+  "pools": [
+    {
+      "rolls": 1,
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "doorways:spruce_glass_doorway_1",
+          "condition": {
+            "type": "minecraft:match_block",
+            "blocks": "doorways:spruce_glass_doorway_1",
+            "state": {
+              "half": "lower"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

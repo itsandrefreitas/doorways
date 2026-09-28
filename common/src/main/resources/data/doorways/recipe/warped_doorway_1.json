@@ -2,7 +2,7 @@
   "type": "minecraft:crafting_shaped",
   "category": "building",
   "key": {
-    "L": "minecraft:warped_stem",
+    "L": "minecraft:warped_planks",
     "H": "doorways:iron_hinge"
   },
   "pattern": [

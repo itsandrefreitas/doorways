@@ -14,8 +14,13 @@ plugins {
     id 'net.fabricmc.fabric-loom'
 }
 
+// The handful of spellings that differ between game versions, one file per version. Compiled
+// here as well as in the loader modules so that a mistake in it is caught by the module that
+// owns no loader, which is where it belongs.
+sourceSets.main.java.srcDirs += ["src/main/java-${mcTarget}"]
+
 dependencies {
-    minecraft "com.mojang:minecraft:${minecraft_version}"
+    minecraft "com.mojang:minecraft:${mc.minecraft_version}"
 
     // Pure geometry. Compile classpath only: :core's sources are included directly in the
     // loader modules, so they do not end up in the jar twice.
